@@ -1,0 +1,21 @@
+# Compiled output
+out/
+bin/
+*.class
+
+# Runtime data / persistence
+wiki.json
+wiki.json.tmp
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+Thumbs.db
+.DS_Store
