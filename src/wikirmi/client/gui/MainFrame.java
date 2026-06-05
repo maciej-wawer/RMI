@@ -142,7 +142,7 @@ public class MainFrame extends JFrame implements WikiEvents {
         for (PageSummaryDTO p : pages) {
             tableModel.addRow(new Object[]{
                     p.getTitle(), p.getVersion(),
-                    p.getLockedBy() == null ? "" : "🔒 " + p.getLockedBy()});
+                    p.getLockedBy() == null ? "" : p.getLockedBy()});
         }
     }
 
