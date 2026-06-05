@@ -51,6 +51,7 @@ public class GuiConstructionSmoke {
                 new HistoryDialog(mf, c, "P1").dispose();
                 new AdminDialog(mf, c).dispose();
                 new wikirmi.client.gui.ChangePasswordDialog(mf, c).dispose();
+                new wikirmi.client.gui.NewPageDialog(mf, c).dispose();
                 mf.dispose();
             } catch (Throwable t) {
                 err[0] = t;

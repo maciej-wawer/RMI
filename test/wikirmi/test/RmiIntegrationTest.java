@@ -76,6 +76,19 @@ public class RmiIntegrationTest {
         LockInfoDTO bl = b.acquireEditLock("Wspólna");
         check(bl != null, "B acquires the lock after A finished");
 
+        // ---- a regular (non-admin) user can CREATE pages but not DELETE them ----
+        a.createUser("zwykly", "haslo", Role.USER);
+        WikiClientController u = new WikiClientController();
+        u.connect("localhost", port);
+        u.login("zwykly", "haslo");
+        u.createPage("Strona użytkownika", "treść od zwykłego użytkownika");
+        check(u.getPage("Strona użytkownika").getContent().equals("treść od zwykłego użytkownika"),
+                "regular USER created a page over RMI");
+        boolean userDeleteBlocked = false;
+        try { u.deletePage("Strona użytkownika"); }
+        catch (wikirmi.common.exceptions.AuthorizationException ex) { userDeleteBlocked = true; }
+        check(userDeleteBlocked, "regular USER cannot delete pages (admin-only)");
+
         System.out.println("RMI INTEGRATION OK: race prevented over the wire, save persisted, callback delivered.");
         notify.shutdown();
         System.exit(0);

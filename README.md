@@ -14,7 +14,9 @@ jednoczesnej edycji tych samych zasobów przez wielu klientów.
 - **Powiadomienia na żywo** (callbacki RMI): panel **online** + **aktualnie edytowane**, lista stron
   i treść aktualizują się automatycznie u innych klientów.
 - **Historia wersji**: przeglądanie rewizji, **porównanie różnic** (diff) i **przywracanie** wersji.
-- **Administracja**: tworzenie/usuwanie stron i użytkowników, **wymuszenie odblokowania** strony.
+- **Tworzenie stron** przez każdego zalogowanego użytkownika (przycisk „Nowa strona", Ctrl+N);
+  usuwanie stron pozostaje funkcją administratora.
+- **Administracja**: zarządzanie kontami użytkowników, usuwanie stron, **wymuszenie odblokowania** strony.
 - **Konto**: zmiana hasła.
 - Interfejs: pasek menu, pasek narzędzi, pasek stanu, skróty (Ctrl+E, Ctrl+H, Ctrl+F, F5).
 

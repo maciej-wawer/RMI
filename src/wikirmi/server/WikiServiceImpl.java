@@ -86,7 +86,8 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
     @Override
     public void createPage(String token, String title, String initialContent)
             throws RemoteException, WikiException {
-        SessionManager.Session s = sessions.requireAdmin(token);
+        // Any logged-in user may create a page (deletion remains admin-only).
+        SessionManager.Session s = sessions.require(token);
         PageDTO p = store.createPage(title, initialContent, s.username);
         persist.run();
         notify.pageCreated(new PageSummaryDTO(p.getTitle(), p.getVersion(), null, p.getLastModified()));

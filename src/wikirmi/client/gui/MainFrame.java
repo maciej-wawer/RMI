@@ -74,6 +74,8 @@ public class MainFrame extends JFrame implements WikiEvents {
         bar.add(file);
 
         JMenu edit = new JMenu("Edycja");
+        edit.add(menuItem("Nowa strona", "control N", this::newPage));
+        edit.addSeparator();
         edit.add(menuItem("Edytuj stronę", "control E", this::openEditor));
         edit.add(menuItem("Historia / wersje", "control H", this::openHistory));
         bar.add(edit);
@@ -111,6 +113,7 @@ public class MainFrame extends JFrame implements WikiEvents {
         toolbar.add(button("Szukaj", this::reload));
         toolbar.add(button("Odśwież", () -> { searchField.setText(""); reload(); }));
         toolbar.addSeparator();
+        toolbar.add(button("Nowa strona", this::newPage));
         toolbar.add(button("Edytuj", this::openEditor));
         toolbar.add(button("Historia", this::openHistory));
         if (controller.isAdmin()) {
@@ -187,13 +190,16 @@ public class MainFrame extends JFrame implements WikiEvents {
 
     // ---------------------------------------------------------------- data
     private void reload() {
-        final String sel = selectedTitle();
+        reloadSelecting(selectedTitle());
+    }
+
+    private void reloadSelecting(String selectTitle) {
         UiUtils.async(this,
                 () -> {
                     String q = searchField.getText().trim();
                     return q.isEmpty() ? controller.listPages() : controller.searchPages(q);
                 },
-                pages -> { setPages(pages); reselect(sel); });
+                pages -> { setPages(pages); reselect(selectTitle); });
     }
 
     private void setPages(List<PageSummaryDTO> pages) {
@@ -255,6 +261,15 @@ public class MainFrame extends JFrame implements WikiEvents {
     }
 
     // ---------------------------------------------------------------- actions
+    private void newPage() {
+        NewPageDialog dlg = new NewPageDialog(this, controller);
+        dlg.setVisible(true);                       // modal
+        if (dlg.isCreated()) {
+            searchField.setText("");                // ensure the new page is visible
+            reloadSelecting(dlg.getCreatedTitle()); // refresh and jump to it
+        }
+    }
+
     private void openEditor() {
         final String title = selectedTitle();
         if (title == null) { UiUtils.info(this, "Najpierw wybierz stronę z listy."); return; }
