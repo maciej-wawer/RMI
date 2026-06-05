@@ -44,6 +44,7 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
         if (user == null || !PasswordHasher.verify(password, user.salt(), user.hash()))
             throw new AuthenticationException("Błędny login lub hasło.");
         String token = sessions.open(username, user.role());
+        notify.presenceChanged();
         return new SessionDTO(token, new UserDTO(username, user.role()));
     }
 
@@ -51,6 +52,7 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
     public void logout(String token) throws RemoteException, WikiException {
         notify.unsubscribe(token);
         sessions.close(token);
+        notify.presenceChanged();
     }
 
     // ------------------------------------------------------------ admin: users
@@ -117,6 +119,26 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
         return store.getPage(title);
     }
 
+    @Override
+    public List<String> listOnlineUsers(String token) throws RemoteException, WikiException {
+        sessions.require(token);
+        return sessions.onlineUsernames();
+    }
+
+    @Override
+    public void changePassword(String token, String oldPassword, String newPassword)
+            throws RemoteException, WikiException {
+        SessionManager.Session s = sessions.require(token);
+        if (newPassword == null || newPassword.length() < 3)
+            throw new ValidationException("Nowe hasło musi mieć co najmniej 3 znaki.");
+        User u = store.getUser(s.username);
+        if (u == null || !PasswordHasher.verify(oldPassword, u.salt(), u.hash()))
+            throw new AuthenticationException("Aktualne hasło jest nieprawidłowe.");
+        String salt = PasswordHasher.newSalt();
+        store.updatePassword(s.username, salt, PasswordHasher.hash(newPassword, salt));
+        persist.run();
+    }
+
     // ------------------------------------------------------------ editing (lock-based)
     @Override
     public LockInfoDTO acquireEditLock(String token, String title) throws RemoteException, WikiException {
@@ -162,6 +184,24 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
             throws RemoteException, WikiException {
         sessions.require(token);
         return store.getRevision(title, revisionIndex);
+    }
+
+    @Override
+    public PageDTO restoreRevision(String token, String title, int revisionIndex)
+            throws RemoteException, WikiException {
+        SessionManager.Session s = sessions.require(token);
+        PageDTO p = store.restoreRevision(title, s.token, s.username, revisionIndex);
+        persist.run();
+        notify.pageChanged(new PageSummaryDTO(p.getTitle(), p.getVersion(), null, p.getLastModified()));
+        notify.lockChanged(title, null);
+        return p;
+    }
+
+    @Override
+    public void forceUnlock(String token, String title) throws RemoteException, WikiException {
+        sessions.requireAdmin(token);
+        store.forceUnlock(title);
+        notify.lockChanged(title, null);                    // edit-locks aren't persisted
     }
 
     // ------------------------------------------------------------ notifications

@@ -43,6 +43,7 @@ public class NotificationService {
     public void pageChanged(PageSummaryDTO page) { broadcast(cb -> cb.onPageChanged(page)); }
     public void pageDeleted(String title)        { broadcast(cb -> cb.onPageDeleted(title)); }
     public void lockChanged(String title, LockInfoDTO lock) { broadcast(cb -> cb.onLockChanged(title, lock)); }
+    public void presenceChanged()                { broadcast(WikiClientCallback::onPresenceChanged); }
 
     private interface Push { void send(WikiClientCallback cb) throws RemoteException; }
 

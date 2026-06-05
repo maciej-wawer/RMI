@@ -9,4 +9,5 @@ public interface WikiEvents {
     void pageChanged(PageSummaryDTO page);
     void pageDeleted(String title);
     void lockChanged(String title, LockInfoDTO lock);
+    void presenceChanged();
 }

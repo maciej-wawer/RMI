@@ -215,4 +215,5 @@ public class MainFrame extends JFrame implements WikiEvents {
     }
     @Override public void pageDeleted(String title) { reload(); }
     @Override public void lockChanged(String title, LockInfoDTO lock) { reload(); }
+    @Override public void presenceChanged() { /* replaced in the expanded MainFrame */ }
 }

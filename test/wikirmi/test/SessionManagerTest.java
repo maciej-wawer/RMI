@@ -13,6 +13,10 @@ public class SessionManagerTest {
         Assert.eq(sm.require(t1).username, "alice", "resolve session token");
         Assert.eq(sm.require(t2).role, Role.USER, "resolve role");
 
+        java.util.List<String> online = sm.onlineUsernames();
+        Assert.isTrue(online.contains("alice") && online.contains("bob"), "online users are listed");
+        Assert.eq(online.size(), 2, "two distinct users online");
+
         Assert.throwsEx(AuthenticationException.class,
                 () -> sm.open("carol", Role.USER), "third login over the cap is rejected");
 

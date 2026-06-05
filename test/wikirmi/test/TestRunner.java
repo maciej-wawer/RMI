@@ -23,6 +23,11 @@ public class TestRunner {
         "wikirmi.test.RestartPersistenceTest",
         "wikirmi.test.NotificationTest",
         "wikirmi.test.LockExpiryTest",
+        "wikirmi.test.RestoreRevisionTest",
+        "wikirmi.test.ChangePasswordTest",
+        "wikirmi.test.ForceUnlockTest",
+        "wikirmi.test.MarkdownRendererTest",
+        "wikirmi.test.TextDiffTest",
     };
 
     public static void main(String[] args) throws Exception {

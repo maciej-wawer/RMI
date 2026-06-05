@@ -29,6 +29,10 @@ public interface WikiService extends Remote {
     List<PageSummaryDTO> listPages(String token) throws RemoteException, WikiException;
     List<PageSummaryDTO> searchPages(String token, String query) throws RemoteException, WikiException;
     PageDTO getPage(String token, String title) throws RemoteException, WikiException;
+    List<String> listOnlineUsers(String token) throws RemoteException, WikiException;
+
+    // --- Account ---
+    void changePassword(String token, String oldPassword, String newPassword) throws RemoteException, WikiException;
 
     // --- Editing (lock-based) ---
     LockInfoDTO acquireEditLock(String token, String title) throws RemoteException, WikiException;
@@ -39,6 +43,12 @@ public interface WikiService extends Remote {
     // --- History ---
     List<RevisionDTO> getHistory(String token, String title) throws RemoteException, WikiException;
     PageDTO getRevision(String token, String title, int revisionIndex) throws RemoteException, WikiException;
+    /** Restore a page to an earlier revision (written as a new revision). */
+    PageDTO restoreRevision(String token, String title, int revisionIndex) throws RemoteException, WikiException;
+
+    // --- Admin: lock management ---
+    /** Force-release any edit-lock on a page (admin only). */
+    void forceUnlock(String token, String title) throws RemoteException, WikiException;
 
     // --- Live notifications (server -> client callbacks) ---
     void subscribe(String token, WikiClientCallback client) throws RemoteException, WikiException;

@@ -55,6 +55,7 @@ public class RmiIntegrationTest {
             public void pageChanged(PageSummaryDTO p) { changed.incrementAndGet(); }
             public void pageDeleted(String t) { }
             public void lockChanged(String t, LockInfoDTO l) { lastLockHolder.set(l == null ? null : l.getHolder()); }
+            public void presenceChanged() { }
         };
         ClientCallbackImpl cb = new ClientCallbackImpl(recorder);
         b.subscribe(cb);

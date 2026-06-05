@@ -16,4 +16,6 @@ public interface WikiClientCallback extends Remote {
     void onPageDeleted(String title) throws RemoteException;
     /** {@code lock == null} means the page was released or its lock expired. */
     void onLockChanged(String title, LockInfoDTO lock) throws RemoteException;
+    /** Fired when the set of logged-in users changes (login/logout). */
+    void onPresenceChanged() throws RemoteException;
 }

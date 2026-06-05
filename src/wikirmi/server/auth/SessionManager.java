@@ -63,4 +63,11 @@ public class SessionManager {
     }
 
     public int activeCount() { return sessions.size(); }
+
+    /** Distinct usernames of currently logged-in sessions, sorted. */
+    public java.util.List<String> onlineUsernames() {
+        java.util.TreeSet<String> distinct = new java.util.TreeSet<>();
+        for (Session s : sessions.values()) distinct.add(s.username);
+        return new java.util.ArrayList<>(distinct);
+    }
 }

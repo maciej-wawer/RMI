@@ -48,6 +48,8 @@ public class WikiClientController {
     public List<PageSummaryDTO> listPages() throws RemoteException, WikiException { return stub.listPages(token); }
     public List<PageSummaryDTO> searchPages(String q) throws RemoteException, WikiException { return stub.searchPages(token, q); }
     public PageDTO getPage(String title) throws RemoteException, WikiException { return stub.getPage(token, title); }
+    public List<String> listOnlineUsers() throws RemoteException, WikiException { return stub.listOnlineUsers(token); }
+    public void changePassword(String oldPw, String newPw) throws RemoteException, WikiException { stub.changePassword(token, oldPw, newPw); }
 
     // ----- editing -----
     public LockInfoDTO acquireEditLock(String title) throws RemoteException, WikiException { return stub.acquireEditLock(token, title); }
@@ -60,6 +62,8 @@ public class WikiClientController {
     // ----- history -----
     public List<RevisionDTO> getHistory(String title) throws RemoteException, WikiException { return stub.getHistory(token, title); }
     public PageDTO getRevision(String title, int idx) throws RemoteException, WikiException { return stub.getRevision(token, title, idx); }
+    public PageDTO restoreRevision(String title, int idx) throws RemoteException, WikiException { return stub.restoreRevision(token, title, idx); }
+    public void forceUnlock(String title) throws RemoteException, WikiException { stub.forceUnlock(token, title); }
 
     // ----- admin -----
     public void createPage(String title, String content) throws RemoteException, WikiException { stub.createPage(token, title, content); }

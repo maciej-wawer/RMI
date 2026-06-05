@@ -22,6 +22,7 @@ public class NotificationTest {
         }
         public void onPageDeleted(String t) {}
         public void onLockChanged(String t, LockInfoDTO l) {}
+        public void onPresenceChanged() {}
     }
 
     public static void run() throws Exception {

@@ -69,6 +69,13 @@ public class WikiStore {
             throw new NotFoundException("Nie znaleziono użytkownika: " + username);
     }
 
+    /** Replace a user's salt+hash (role preserved). Used by changePassword. */
+    public void updatePassword(String username, String salt, String hash) throws NotFoundException {
+        User u = users.get(username);
+        if (u == null) throw new NotFoundException("Nie znaleziono użytkownika: " + username);
+        users.put(username, new User(username, salt, hash, u.role()));
+    }
+
     public List<UserDTO> listUsers() {
         List<UserDTO> out = new ArrayList<>();
         for (User u : users.values()) out.add(new UserDTO(u.username(), u.role()));
@@ -250,7 +257,45 @@ public class WikiStore {
         }
     }
 
+    /** Restore an old revision's content as a NEW revision (preserves history). */
+    public PageDTO restoreRevision(String title, String token, String userName, int revisionIndex)
+            throws NotFoundException, ValidationException, PageLockedException {
+        Page p = require(title);
+        long now = clock.now();
+        p.lock().writeLock().lock();
+        try {
+            EditLock cur = p.editLock();
+            if (cur != null && !cur.isExpired(now) && !cur.heldBy(token))
+                throw new PageLockedException(cur.holderName(), Math.max(0, cur.expiresAt() - now) / 1000);
+            if (revisionIndex < 1 || revisionIndex > p.history().size())
+                throw new ValidationException("Brak rewizji o numerze " + revisionIndex + ".");
+            RevisionDTO old = p.history().get(revisionIndex - 1);
+            long newVersion = p.version() + 1;
+            p.setContent(old.getContent());
+            p.setVersion(newVersion);
+            p.setLastEditor(userName);
+            p.setLastModified(now);
+            p.history().add(new RevisionDTO((int) newVersion,
+                    userName + " (przywrócono z v" + revisionIndex + ")", now, old.getContent()));
+            p.setEditLock(null);
+            return toDTO(p, now);
+        } finally {
+            p.lock().writeLock().unlock();
+        }
+    }
+
     // ---------------------------------------------------------------- reaper hook (write lock)
+    /** Force-clear any edit-lock on a page regardless of holder (admin override). */
+    public void forceUnlock(String title) throws NotFoundException {
+        Page p = require(title);
+        p.lock().writeLock().lock();
+        try {
+            p.setEditLock(null);
+        } finally {
+            p.lock().writeLock().unlock();
+        }
+    }
+
     /** Reclaim every expired edit-lease; returns the titles freed. Called by the reaper daemon. */
     public List<String> reapExpiredLocks() {
         long now = clock.now();

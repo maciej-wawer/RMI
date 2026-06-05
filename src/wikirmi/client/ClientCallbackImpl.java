@@ -26,4 +26,5 @@ public class ClientCallbackImpl extends UnicastRemoteObject implements WikiClien
     @Override public void onPageChanged(PageSummaryDTO page) { SwingUtilities.invokeLater(() -> events.pageChanged(page)); }
     @Override public void onPageDeleted(String title)        { SwingUtilities.invokeLater(() -> events.pageDeleted(title)); }
     @Override public void onLockChanged(String title, LockInfoDTO lock) { SwingUtilities.invokeLater(() -> events.lockChanged(title, lock)); }
+    @Override public void onPresenceChanged()                { SwingUtilities.invokeLater(events::presenceChanged); }
 }
