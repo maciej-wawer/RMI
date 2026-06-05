@@ -20,12 +20,18 @@ public class WikiClientController {
     private WikiService stub;
     private String token;
     private UserDTO user;
+    private String host;
+    private int port;
 
     /** Looks up the remote service in the registry. */
     public void connect(String host, int port) throws RemoteException, java.rmi.NotBoundException {
+        this.host = host;
+        this.port = port;
         Registry registry = LocateRegistry.getRegistry(host, port);
         stub = (WikiService) registry.lookup(Protocol.SERVICE_NAME);
     }
+
+    public String serverEndpoint() { return host + ":" + port; }
 
     public UserDTO login(String username, String password) throws RemoteException, WikiException {
         SessionDTO s = stub.login(username, password);

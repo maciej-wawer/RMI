@@ -5,6 +5,19 @@ szkielety stron oraz konta użytkowników, a **użytkownicy** przeglądają, wys
 Rdzeniem projektu jest bezpieczna, drobnoziarnista i wolna od zakleszczeń współbieżność przy
 jednoczesnej edycji tych samych zasobów przez wielu klientów.
 
+## Funkcje
+
+- Logowanie (role: administrator / użytkownik), limit jednoczesnych klientów.
+- Przeglądanie i **wyszukiwanie pełnotekstowe** stron.
+- **Edycja z blokadą** (jeden edytor naraz) + licznik czasu blokady, **podgląd Markdown**
+  (`#`, `**`, `*`, listy) i klikalne linki `[[Strona]]`.
+- **Powiadomienia na żywo** (callbacki RMI): panel **online** + **aktualnie edytowane**, lista stron
+  i treść aktualizują się automatycznie u innych klientów.
+- **Historia wersji**: przeglądanie rewizji, **porównanie różnic** (diff) i **przywracanie** wersji.
+- **Administracja**: tworzenie/usuwanie stron i użytkowników, **wymuszenie odblokowania** strony.
+- **Konto**: zmiana hasła.
+- Interfejs: pasek menu, pasek narzędzi, pasek stanu, skróty (Ctrl+E, Ctrl+H, Ctrl+F, F5).
+
 ## Wymagania
 
 - **JDK 17** (testowano na Amazon Corretto 17). Java 8 również jest wspierana.
