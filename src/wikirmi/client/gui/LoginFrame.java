@@ -20,11 +20,16 @@ public class LoginFrame extends JFrame {
     public LoginFrame() {
         super("WikiRMI — logowanie");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(360, 240);
-        setLocationRelativeTo(null);
+
+        JLabel banner = new JLabel("WikiRMI", SwingConstants.CENTER);
+        banner.setOpaque(true);
+        banner.setBackground(UiUtils.BANNER_BG);
+        banner.setForeground(UiUtils.BANNER_FG);
+        banner.setFont(banner.getFont().deriveFont(Font.BOLD, 22f));
+        banner.setBorder(BorderFactory.createEmptyBorder(14, 0, 14, 0));
 
         JPanel form = new JPanel(new GridLayout(4, 2, 8, 8));
-        form.setBorder(BorderFactory.createEmptyBorder(16, 16, 8, 16));
+        form.setBorder(BorderFactory.createEmptyBorder(18, 18, 8, 18));
         form.add(new JLabel("Serwer:"));   form.add(hostField);
         form.add(new JLabel("Port:"));     form.add(portField);
         form.add(new JLabel("Użytkownik:")); form.add(userField);
@@ -34,8 +39,11 @@ public class LoginFrame extends JFrame {
         south.add(loginButton);
 
         setLayout(new BorderLayout());
+        add(banner, BorderLayout.NORTH);
         add(form, BorderLayout.CENTER);
         add(south, BorderLayout.SOUTH);
+        setSize(400, 300);
+        UiUtils.placeWindow(this);
 
         getRootPane().setDefaultButton(loginButton);
         loginButton.addActionListener(e -> doLogin());

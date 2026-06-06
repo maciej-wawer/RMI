@@ -54,8 +54,9 @@ public class MainFrame extends JFrame implements WikiEvents {
         refreshOnline();
         updateStatusConn(0);
 
-        setSize(960, 600);
-        setLocationRelativeTo(null);
+        setSize(980, 620);
+        setMinimumSize(new Dimension(820, 520));
+        UiUtils.placeWindow(this);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosing(WindowEvent e) { cleanup(); System.exit(0); }
@@ -86,7 +87,9 @@ public class MainFrame extends JFrame implements WikiEvents {
 
         if (controller.isAdmin()) {
             JMenu admin = new JMenu("Administracja");
+            admin.add(menuItem("Nowy użytkownik", null, this::newUser));
             admin.add(menuItem("Panel administracyjny", null, this::openAdmin));
+            admin.addSeparator();
             admin.add(menuItem("Wymuś odblokowanie strony", null, this::forceUnlock));
             bar.add(admin);
         }
@@ -113,11 +116,15 @@ public class MainFrame extends JFrame implements WikiEvents {
         toolbar.add(button("Szukaj", this::reload));
         toolbar.add(button("Odśwież", () -> { searchField.setText(""); reload(); }));
         toolbar.addSeparator();
-        toolbar.add(button("Nowa strona", this::newPage));
+        JButton newPageBtn = button("+ Nowa strona", this::newPage);
+        newPageBtn.setForeground(UiUtils.SUCCESS.darker());
+        newPageBtn.setFont(newPageBtn.getFont().deriveFont(Font.BOLD));
+        toolbar.add(newPageBtn);
         toolbar.add(button("Edytuj", this::openEditor));
         toolbar.add(button("Historia", this::openHistory));
         if (controller.isAdmin()) {
             toolbar.addSeparator();
+            toolbar.add(button("Nowy użytkownik", this::newUser));
             toolbar.add(button("Administracja", this::openAdmin));
             toolbar.add(button("Wymuś odblokowanie", this::forceUnlock));
         }
@@ -125,6 +132,8 @@ public class MainFrame extends JFrame implements WikiEvents {
 
         // page table
         pagesTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        pagesTable.setRowHeight(24);
+        pagesTable.setFillsViewportHeight(true);
         pagesTable.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting()) return;
             String title = selectedTitle();
@@ -132,7 +141,7 @@ public class MainFrame extends JFrame implements WikiEvents {
         });
         JScrollPane tableScroll = new JScrollPane(pagesTable);
 
-        // content viewer (rendered HTML + clickable [[links]])
+        // content viewer (rendered HTML + clickable [[links]]) with a coloured page-header banner
         content.setContentType("text/html");
         content.setEditable(false);
         content.addHyperlinkListener(e -> {
@@ -141,18 +150,27 @@ public class MainFrame extends JFrame implements WikiEvents {
                 if (page != null) navigateTo(page);
             }
         });
-        JScrollPane contentScroll = new JScrollPane(content);
+        statusPage.setOpaque(true);
+        statusPage.setBackground(UiUtils.BANNER_BG);
+        statusPage.setForeground(UiUtils.BANNER_FG);
+        statusPage.setFont(statusPage.getFont().deriveFont(Font.BOLD));
+        statusPage.setBorder(BorderFactory.createEmptyBorder(7, 12, 7, 12));
+        statusPage.setText("Wybierz stronę z listy, aby zobaczyć jej treść.");
+        JPanel contentPanel = new JPanel(new BorderLayout());
+        contentPanel.add(statusPage, BorderLayout.NORTH);
+        contentPanel.add(new JScrollPane(content), BorderLayout.CENTER);
 
-        JSplitPane innerSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, contentScroll, presencePanel);
+        JSplitPane innerSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, contentPanel, presencePanel);
         innerSplit.setResizeWeight(0.74);
         JSplitPane outerSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tableScroll, innerSplit);
         outerSplit.setResizeWeight(0.30);
 
-        // status bar
+        // status bar — single left-aligned label so it can never overlap another component
+        statusConn.setOpaque(true);
+        statusConn.setBackground(UiUtils.STATUS_BG);
+        statusConn.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
         JPanel statusBar = new JPanel(new BorderLayout());
-        statusBar.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
-        statusBar.add(statusConn, BorderLayout.WEST);
-        statusBar.add(statusPage, BorderLayout.EAST);
+        statusBar.add(statusConn, BorderLayout.CENTER);
 
         setLayout(new BorderLayout());
         add(toolbar, BorderLayout.NORTH);
@@ -260,6 +278,11 @@ public class MainFrame extends JFrame implements WikiEvents {
         return (row >= 0 && row < currentPages.size()) ? currentPages.get(row).getTitle() : null;
     }
 
+    /** Test/preview hook: select the first page (if any) to load its content. */
+    public void selectFirstPage() {
+        if (pagesTable.getRowCount() > 0) pagesTable.setRowSelectionInterval(0, 0);
+    }
+
     // ---------------------------------------------------------------- actions
     private void newPage() {
         NewPageDialog dlg = new NewPageDialog(this, controller);
@@ -268,6 +291,10 @@ public class MainFrame extends JFrame implements WikiEvents {
             searchField.setText("");                // ensure the new page is visible
             reloadSelecting(dlg.getCreatedTitle()); // refresh and jump to it
         }
+    }
+
+    private void newUser() {
+        new NewUserDialog(this, controller, () -> { }).setVisible(true);
     }
 
     private void openEditor() {

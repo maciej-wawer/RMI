@@ -1,6 +1,10 @@
 package wikirmi.client.gui;
 
+import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Toolkit;
+import java.awt.Window;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -14,6 +18,25 @@ import javax.swing.SwingWorker;
 /** Swing helpers: run remote calls off the EDT and turn exceptions into friendly dialogs. */
 public final class UiUtils {
     private UiUtils() {}
+
+    // shared palette
+    public static final Color ACCENT     = new Color(0x2D6CDF);   // primary blue
+    public static final Color ACCENT_DARK = new Color(0x1F4DA0);
+    public static final Color BANNER_BG  = new Color(0x2D6CDF);
+    public static final Color BANNER_FG  = Color.WHITE;
+    public static final Color STATUS_BG  = new Color(0xE7EDF9);
+    public static final Color SUCCESS    = new Color(0x2E9E4F);   // "add" actions
+
+    /** Centre a window on screen with a small per-process offset so multiple clients don't stack. */
+    public static void placeWindow(Window w) {
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        long pid = ProcessHandle.current().pid();
+        int dx = (int) ((pid % 6) * 46) - 115;
+        int dy = (int) ((pid / 6 % 6) * 34) - 85;
+        int x = Math.max(0, (screen.width - w.getWidth()) / 2 + dx);
+        int y = Math.max(0, (screen.height - w.getHeight()) / 2 + dy);
+        w.setLocation(x, y);
+    }
 
     private static final DateTimeFormatter TIME_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());

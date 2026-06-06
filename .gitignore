@@ -8,6 +8,9 @@ wiki.json
 wiki.json.tmp
 *.log
 
+# UI render/capture artifacts (regenerable via RenderShot)
+ui-*.png
+
 # IDE
 .idea/
 *.iml
