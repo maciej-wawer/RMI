@@ -126,8 +126,8 @@ story += [Spacer(1, 40*mm),
                     'użytkownicy modyfikują strony)', S['body']),
           Spacer(1, 10*mm)]
 meta = [
-    [td('Tytuł programu', head=True), td('Autor', head=True)],
-    [td('WikiRMI — Rozproszony System Wiki'), td('Maciej Wawer')],
+    [td('Tytuł programu', head=True), td('Autorzy', head=True)],
+    [td('WikiRMI — Rozproszony System Wiki'), td('Maciej Wawer, Krystian Wasil, Marek Więcaszek')],
     [td('Temat', head=True), td('Technologie', head=True)],
     [td('9 — System typu wiki'), td('Java 17 (java.rmi, java.util.concurrent), Swing')],
     [td('Repozytorium', head=True), td('Data', head=True)],
@@ -141,9 +141,12 @@ t.setStyle(TableStyle([('GRID',(0,0),(-1,-1),0.4,GRIDC), ('VALIGN',(0,0),(-1,-1)
                        ('BACKGROUND',(0,6),(1,6),ACCENT),('SPAN',(0,6),(1,6)),
                        ('LEFTPADDING',(0,0),(-1,-1),6),('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5)]))
 story.append(t)
-story.append(Paragraph('Projekt indywidualny — Maciej Wawer odpowiada za całość: architekturę RMI, '
-                       'rdzeń współbieżności (WikiStore), persystencję, serwer, klienta Swing, testy oraz dokumentację.',
-                       S['body']))
+story.append(Paragraph('<b>Maciej Wawer</b> — architektura RMI i warstwa serwera: interfejs zdalny (WikiService), '
+                       'WikiServiceImpl, rejestr RMI, uwierzytelnianie i sesje (SessionManager, Semaphore).', S['body']))
+story.append(Paragraph('<b>Krystian Wasil</b> — rdzeń współbieżności: WikiStore, blokady (ReentrantReadWriteLock), '
+                       'dzierżawa edycji, wątek daemon (LockReaperDaemon), powiadomienia (NotificationService, ExecutorService).', S['body']))
+story.append(Paragraph('<b>Marek Więcaszek</b> — klient Swing (GUI, WikiClientController, callbacki), persystencja JSON '
+                       '(write-through, zapis atomowy) oraz testy współbieżności i sprawozdanie.', S['body']))
 story.append(PageBreak())
 
 # ---- 1. CEL I ZAKRES ----
@@ -359,6 +362,7 @@ def footer(canvas, doc):
     canvas.restoreState()
 
 doc = SimpleDocTemplate(OUT, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm,
-                        topMargin=18*mm, bottomMargin=20*mm, title='Sprawozdanie WikiRMI', author='Maciej Wawer')
+                        topMargin=18*mm, bottomMargin=20*mm, title='Sprawozdanie WikiRMI',
+                        author='Maciej Wawer, Krystian Wasil, Marek Więcaszek')
 doc.build(story, onFirstPage=footer, onLaterPages=footer)
 print('WROTE', OUT)
