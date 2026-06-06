@@ -48,6 +48,11 @@ public class NotificationService {
     private interface Push { void send(WikiClientCallback cb) throws RemoteException; }
 
     private void broadcast(Push push) {
+        // Każde powiadomienie wysyłamy na PULI WĄTKÓW (ExecutorService), a nie w
+        // wątku, który właśnie zapisał stronę. Dzięki temu wolny albo "martwy"
+        // klient (zawieszone wywołanie RMI) NIE blokuje wątku edycji ani innych
+        // klientów. ConcurrentHashMap pozwala bezpiecznie iterować i usuwać podczas
+        // równoległych zmian listy subskrybentów.
         for (Map.Entry<String, WikiClientCallback> e : subscribers.entrySet()) {
             final String token = e.getKey();
             final WikiClientCallback cb = e.getValue();
@@ -55,11 +60,16 @@ public class NotificationService {
                 try {
                     push.send(cb);
                 } catch (RemoteException dead) {
-                    subscribers.remove(token, cb);          // client gone -> drop it
+                    subscribers.remove(token, cb);          // klient zniknął -> usuwamy go
                 } catch (RuntimeException ignored) {
-                    // never let one bad client break dispatch
+                    // jeden wadliwy klient nigdy nie może zepsuć rozsyłki do pozostałych
                 }
             });
         }
+        // WARIANT ALTERNATYWNY — rozsyłka SYNCHRONICZNA w wątku wołającego:
+        //   for (var e : subscribers.entrySet()) { try { push.send(e.getValue()); } catch (...) {} }
+        //   Prostsze, ale jeden klient z zawieszonym połączeniem RMI wstrzymałby
+        //   zapis strony i powiadomienie wszystkich kolejnych klientów — dlatego
+        //   wybrano wariant asynchroniczny z pulą wątków.
     }
 }

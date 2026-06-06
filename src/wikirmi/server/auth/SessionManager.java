@@ -33,11 +33,31 @@ public class SessionManager {
 
     /** Opens a session, consuming one client permit; rejects when the server is full. */
     public String open(String username, Role role) throws AuthenticationException {
+        // LIMIT JEDNOCZESNYCH KLIENTÓW — licznik zasobów.
+        // ROZWIĄZANIE UŻYTE: Semaphore z MAX_CLIENTS pozwoleniami. tryAcquire()
+        // pobiera pozwolenie bez blokowania; gdy brak pozwoleń => odrzucamy login.
+        // close() zwraca pozwolenie (release). Semafor sam dba o atomowość licznika.
         if (!permits.tryAcquire())
             throw new AuthenticationException("Serwer jest pełny — przekroczono maksymalną liczbę klientów.");
         String token = UUID.randomUUID().toString();
         sessions.put(token, new Session(token, username, role, System.currentTimeMillis()));
         return token;
+
+        // WARIANT ALTERNATYWNY — AtomicInteger z pętlą CAS (compare-and-set):
+        //   int n;
+        //   do {
+        //       n = activeCount.get();                 // activeCount: AtomicInteger
+        //       if (n >= maxClients)
+        //           throw new AuthenticationException("Serwer jest pełny ...");
+        //   } while (!activeCount.compareAndSet(n, n + 1));   // atomowa inkrementacja
+        //   ... a przy close(): activeCount.decrementAndGet();
+        //   Działa bez blokad, ale Semaphore jest czytelniejszy i dodatkowo wspiera
+        //   blokujące acquire() oraz acquire(timeout), gdybyśmy chcieli KOLEJKOWAĆ
+        //   klientów zamiast ich odrzucać.
+        //
+        // WARIANT ALTERNATYWNY 2 — synchronized na liczniku:
+        //   synchronized (this) { if (count >= max) throw ...; count++; }
+        //   Proste, ale serializuje każde logowanie na monitorze SessionManagera.
     }
 
     /** Resolves a token to its session, refreshing lastSeen; throws if unknown/expired. */
