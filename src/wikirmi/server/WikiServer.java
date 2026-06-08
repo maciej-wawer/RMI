@@ -29,8 +29,11 @@ public class WikiServer {
 
         WikiServiceImpl impl = new WikiServiceImpl(store, notify, persist);
 
-        Registry registry = LocateRegistry.createRegistry(ServerConfig.REGISTRY_PORT);
-        registry.rebind(ServerConfig.SERVICE_NAME, impl);
+        // MECHANIZM RMI (strona serwera): tworzymy rejestr RMI i rejestrujemy w nim
+        // obiekt zdalny przez URL — dokładnie jak w skrypcie:
+        //   LocateRegistry.createRegistry(port);  Naming.rebind("//host:port/nazwa", obiekt);
+        LocateRegistry.createRegistry(ServerConfig.REGISTRY_PORT);
+        java.rmi.Naming.rebind("//localhost:" + ServerConfig.REGISTRY_PORT + "/" + ServerConfig.SERVICE_NAME, impl);
 
         // WĄTEK daemon sprzątający przeterminowane blokady; po zwolnieniu — powiadom klientów.
         store.startReaper(ServerConfig.REAP_MS, title -> notify.lockChanged(title, null));

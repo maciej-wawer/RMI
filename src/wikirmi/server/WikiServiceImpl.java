@@ -15,9 +15,22 @@ import wikirmi.server.notify.NotificationService;
 import wikirmi.server.store.WikiStore;
 
 /**
- * Cienka warstwa RMI: sprawdza uprawnienia (sesja/rola), deleguje do {@link WikiStore},
- * a po zmianach zapisuje dane i rozsyła powiadomienia. Cała synchronizacja jest w WikiStore —
- * tutaj nie ma żadnych blokad.
+ * ===========================================================================
+ *  MECHANIZM RMI (zdalne wywoływanie metod) — strona serwera.
+ *
+ *  Tak jak w skrypcie:
+ *    - interfejs zdalny WikiService DZIEDZICZY po java.rmi.Remote, a każda jego
+ *      metoda deklaruje "throws RemoteException";
+ *    - ta klasa implementacji DZIEDZICZY po UnicastRemoteObject i implementuje
+ *      ten interfejs (zostaje wyeksportowana jako obiekt zdalny);
+ *    - serwer rejestruje ją w rejestrze RMI (Naming.rebind), a klient pobiera
+ *      "namiastkę" (stub) przez Naming.lookup i wywołuje metody jak lokalne —
+ *      tyle że realnie wykonują się one na serwerze.
+ *
+ *  Rola tej warstwy: sprawdza uprawnienia (sesja/rola), deleguje do {@link WikiStore},
+ *  a po zmianach zapisuje dane i rozsyła powiadomienia (callback RMI w drugą stronę).
+ *  CAŁA synchronizacja jest w WikiStore — tutaj nie ma żadnych blokad.
+ * ===========================================================================
  */
 public class WikiServiceImpl extends UnicastRemoteObject implements WikiService {
     private static final long serialVersionUID = 1L;

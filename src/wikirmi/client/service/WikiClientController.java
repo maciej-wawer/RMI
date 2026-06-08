@@ -23,12 +23,16 @@ public class WikiClientController {
     private String host;
     private int port;
 
-    /** Looks up the remote service in the registry. */
-    public void connect(String host, int port) throws RemoteException, java.rmi.NotBoundException {
+    /**
+     * MECHANIZM RMI (strona klienta): odnajdujemy zdalny obiekt w rejestrze przez URL,
+     * dokładnie jak w skrypcie — Naming.lookup("//host:port/nazwa"). Otrzymany "stub"
+     * wygląda jak zwykły obiekt, ale każde wywołanie metody idzie po sieci do serwera.
+     */
+    public void connect(String host, int port)
+            throws RemoteException, java.rmi.NotBoundException, java.net.MalformedURLException {
         this.host = host;
         this.port = port;
-        Registry registry = LocateRegistry.getRegistry(host, port);
-        stub = (WikiService) registry.lookup(Protocol.SERVICE_NAME);
+        stub = (WikiService) java.rmi.Naming.lookup("//" + host + ":" + port + "/" + Protocol.SERVICE_NAME);
     }
 
     public String serverEndpoint() { return host + ":" + port; }
