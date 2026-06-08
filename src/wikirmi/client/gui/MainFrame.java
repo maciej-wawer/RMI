@@ -88,6 +88,7 @@ public class MainFrame extends JFrame implements WikiEvents {
             admin.add(menuItem("Nowy użytkownik", null, this::newUser));
             admin.add(menuItem("Panel administracyjny", null, this::openAdmin));
             admin.addSeparator();
+            admin.add(menuItem("Usuń stronę", null, this::deleteSelectedPage));
             admin.add(menuItem("Wymuś odblokowanie strony", null, this::forceUnlock));
             bar.add(admin);
         }
@@ -327,6 +328,14 @@ public class MainFrame extends JFrame implements WikiEvents {
 
     private void changePassword() {
         new ChangePasswordDialog(this, controller).setVisible(true);
+    }
+
+    /** Szybkie usunięcie zaznaczonej strony z głównego okna (admin). */
+    private void deleteSelectedPage() {
+        final String title = selectedTitle();
+        if (title == null) { UiUtils.info(this, "Najpierw wybierz stronę z listy."); return; }
+        if (!UiUtils.confirm(this, "Usunąć stronę '" + title + "'? Tej operacji nie można cofnąć.")) return;
+        UiUtils.async(this, () -> { controller.deletePage(title); return null; }, v -> reload());
     }
 
     private void showAbout() {
