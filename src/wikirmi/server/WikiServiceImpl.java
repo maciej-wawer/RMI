@@ -38,7 +38,7 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
     public SessionDTO login(String username, String password) throws RemoteException, WikiException {
         User user = store.getUser(username);
         if (user == null || !PasswordHasher.verify(password, user.salt(), user.hash()))
-            throw new AuthenticationException("Błędny login lub hasło.");
+            throw new WikiException("Błędny login lub hasło.");
         String token = store.openSession(username, user.role());      // SEMAFOR: pobiera pozwolenie
         notify.presenceChanged();
         return new SessionDTO(token, new UserDTO(username, user.role()));
@@ -57,8 +57,8 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
             throws RemoteException, WikiException {
         store.requireAdmin(token);
         if (password == null || password.length() < 3)
-            throw new ValidationException("Hasło musi mieć co najmniej 3 znaki.");
-        if (role == null) throw new ValidationException("Rola jest wymagana.");
+            throw new WikiException("Hasło musi mieć co najmniej 3 znaki.");
+        if (role == null) throw new WikiException("Rola jest wymagana.");
         String salt = PasswordHasher.newSalt();
         store.createUser(username, salt, PasswordHasher.hash(password, salt), role);
         persist.run();
@@ -67,7 +67,7 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
     @Override
     public void deleteUser(String token, String username) throws RemoteException, WikiException {
         WikiStore.Session s = store.requireAdmin(token);
-        if (s.username.equals(username)) throw new ValidationException("Nie można usunąć własnego konta.");
+        if (s.username.equals(username)) throw new WikiException("Nie można usunąć własnego konta.");
         store.deleteUser(username);
         persist.run();
     }
@@ -127,10 +127,10 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
             throws RemoteException, WikiException {
         WikiStore.Session s = store.requireSession(token);
         if (newPassword == null || newPassword.length() < 3)
-            throw new ValidationException("Nowe hasło musi mieć co najmniej 3 znaki.");
+            throw new WikiException("Nowe hasło musi mieć co najmniej 3 znaki.");
         User u = store.getUser(s.username);
         if (u == null || !PasswordHasher.verify(oldPassword, u.salt(), u.hash()))
-            throw new AuthenticationException("Aktualne hasło jest nieprawidłowe.");
+            throw new WikiException("Aktualne hasło jest nieprawidłowe.");
         String salt = PasswordHasher.newSalt();
         store.updatePassword(s.username, salt, PasswordHasher.hash(newPassword, salt));
         persist.run();

@@ -10,7 +10,7 @@ import java.util.Map;
 
 import wikirmi.common.Role;
 import wikirmi.common.dto.RevisionDTO;
-import wikirmi.common.exceptions.ValidationException;
+import wikirmi.common.exceptions.WikiException;
 import wikirmi.server.auth.PasswordHasher;
 import wikirmi.server.model.Page;
 import wikirmi.server.model.User;
@@ -132,7 +132,7 @@ public final class JsonPersistence {
                     "Witaj w WikiRMI!\n\nTo jest przykładowa strona startowa utworzona przez administratora.\n"
                             + "Zaloguj się i użyj przycisku \"Edytuj\", aby zmodyfikować jej treść.",
                     adminUser);
-        } catch (ValidationException ignored) {
+        } catch (WikiException ignored) {
             // seed content is always valid; ignore
         }
         save(store, path);

@@ -82,28 +82,28 @@ public class WikiStore {
     }
 
     /** Logowanie: pobiera pozwolenie z semafora; gdy brak — serwer pełny. */
-    public String openSession(String username, Role role) throws AuthenticationException {
+    public String openSession(String username, Role role) throws WikiException {
         if (!wolneMiejsca.tryAcquire())
-            throw new AuthenticationException("Serwer jest pełny — przekroczono maksymalną liczbę klientów.");
+            throw new WikiException("Serwer jest pełny — przekroczono maksymalną liczbę klientów.");
         String token = UUID.randomUUID().toString();
         sessions.put(token, new Session(token, username, role, System.currentTimeMillis()));
         return token;
     }
 
     /** Sprawdza token i zwraca sesję; rzuca wyjątek, gdy sesja nieznana/wygasła. */
-    public Session requireSession(String token) throws AuthenticationException {
+    public Session requireSession(String token) throws WikiException {
         Session s = (token == null) ? null : sessions.get(token);
         if (s == null)
-            throw new AuthenticationException("Sesja wygasła lub jest nieprawidłowa. Zaloguj się ponownie.");
+            throw new WikiException("Sesja wygasła lub jest nieprawidłowa. Zaloguj się ponownie.");
         s.lastSeen = System.currentTimeMillis();
         return s;
     }
 
     /** Jak requireSession, ale dodatkowo wymaga roli administratora. */
-    public Session requireAdmin(String token) throws AuthenticationException, AuthorizationException {
+    public Session requireAdmin(String token) throws WikiException {
         Session s = requireSession(token);
         if (s.role != Role.ADMIN)
-            throw new AuthorizationException("Operacja dozwolona tylko dla administratora.");
+            throw new WikiException("Operacja dozwolona tylko dla administratora.");
         return s;
     }
 
@@ -191,37 +191,37 @@ public class WikiStore {
     }
 
     // ---------------------------------------------------------------- walidacja danych wejściowych
-    private static void requireTitle(String t) throws ValidationException {
-        if (t == null || t.trim().isEmpty()) throw new ValidationException("Tytuł strony nie może być pusty.");
-        if (t.length() > 120) throw new ValidationException("Tytuł jest za długi (maks. 120 znaków).");
+    private static void requireTitle(String t) throws WikiException {
+        if (t == null || t.trim().isEmpty()) throw new WikiException("Tytuł strony nie może być pusty.");
+        if (t.length() > 120) throw new WikiException("Tytuł jest za długi (maks. 120 znaków).");
     }
 
-    private static void requireContent(String c) throws ValidationException {
-        if (c == null) throw new ValidationException("Treść strony nie może być pusta.");
-        if (c.length() > 100_000) throw new ValidationException("Treść jest za długa (maks. 100000 znaków).");
+    private static void requireContent(String c) throws WikiException {
+        if (c == null) throw new WikiException("Treść strony nie może być pusta.");
+        if (c.length() > 100_000) throw new WikiException("Treść jest za długa (maks. 100000 znaków).");
     }
 
     // ---------------------------------------------------------------- konta użytkowników
     public void addUser(User u) { users.put(u.username(), u); }       // używane przy wczytywaniu z pliku
     public User getUser(String username) { return users.get(username); }
 
-    public void createUser(String username, String salt, String hash, Role role) throws ValidationException {
+    public void createUser(String username, String salt, String hash, Role role) throws WikiException {
         if (username == null || username.trim().isEmpty())
-            throw new ValidationException("Nazwa użytkownika nie może być pusta.");
+            throw new WikiException("Nazwa użytkownika nie może być pusta.");
         // putIfAbsent = atomowe "dodaj, jeśli nie istnieje" (jeden wątek wygrywa)
         if (users.putIfAbsent(username, new User(username, salt, hash, role)) != null)
-            throw new ValidationException("Użytkownik '" + username + "' już istnieje.");
+            throw new WikiException("Użytkownik '" + username + "' już istnieje.");
     }
 
-    public void deleteUser(String username) throws NotFoundException {
+    public void deleteUser(String username) throws WikiException {
         if (users.remove(username) == null)
-            throw new NotFoundException("Nie znaleziono użytkownika: " + username);
+            throw new WikiException("Nie znaleziono użytkownika: " + username);
     }
 
     /** Podmiana hasła (sól + skrót); rola bez zmian. */
-    public void updatePassword(String username, String salt, String hash) throws NotFoundException {
+    public void updatePassword(String username, String salt, String hash) throws WikiException {
         User u = users.get(username);
-        if (u == null) throw new NotFoundException("Nie znaleziono użytkownika: " + username);
+        if (u == null) throw new WikiException("Nie znaleziono użytkownika: " + username);
         users.put(username, new User(username, salt, hash, u.role()));
     }
 
@@ -235,7 +235,7 @@ public class WikiStore {
     public Collection<User> allUsers() { return users.values(); }     // migawka do zapisu
 
     // ---------------------------------------------------------------- strony: tworzenie / usuwanie
-    public PageDTO createPage(String title, String content, String editor) throws ValidationException {
+    public PageDTO createPage(String title, String content, String editor) throws WikiException {
         requireTitle(title);
         String body = (content == null) ? "" : content;
         requireContent(body);
@@ -244,21 +244,21 @@ public class WikiStore {
         // atomowe "utwórz, jeśli nie istnieje": z N wątków tworzących ten sam tytuł
         // dokładnie jeden dostaje prev == null i wygrywa — reszta dostaje wyjątek.
         if (pages.putIfAbsent(title, p) != null)
-            throw new ValidationException("Strona '" + title + "' już istnieje.");
+            throw new WikiException("Strona '" + title + "' już istnieje.");
         return toDTO(p, now);
     }
 
-    public void deletePage(String title) throws NotFoundException {
+    public void deletePage(String title) throws WikiException {
         if (pages.remove(title) == null)
-            throw new NotFoundException("Nie znaleziono strony: " + title);
+            throw new WikiException("Nie znaleziono strony: " + title);
     }
 
     public void putPage(Page p) { pages.put(p.title(), p); }          // używane przy wczytywaniu z pliku
     public Collection<Page> allPages() { return pages.values(); }     // migawka do zapisu
 
-    private Page require(String title) throws NotFoundException {
+    private Page require(String title) throws WikiException {
         Page p = pages.get(title);
-        if (p == null) throw new NotFoundException("Nie znaleziono strony: " + title);
+        if (p == null) throw new WikiException("Nie znaleziono strony: " + title);
         return p;
     }
 
@@ -270,7 +270,7 @@ public class WikiStore {
     // czytelników naraz; writeLock() jest wyłączny (jeden piszący, zero czytelników).
 
     /** Odczyt strony pod WSPÓŁDZIELONĄ blokadą odczytu (wielu czytelników naraz). */
-    public PageDTO getPage(String title) throws NotFoundException {
+    public PageDTO getPage(String title) throws WikiException {
         Page p = require(title);
         p.lock().readLock().lock();
         try {
@@ -318,8 +318,7 @@ public class WikiStore {
      * wpuści tylko jeden wątek naraz, więc DOKŁADNIE JEDEN założy dzierżawę edycji,
      * a pozostali zobaczą ją zajętą i dostaną PageLockedException.
      */
-    public LockInfoDTO acquireEditLock(String title, String token, String userName)
-            throws NotFoundException, PageLockedException {
+    public LockInfoDTO acquireEditLock(String title, String token, String userName) throws WikiException {
         Page p = require(title);
         long now = clock.now();
         p.lock().writeLock().lock();
@@ -339,8 +338,7 @@ public class WikiStore {
     }
 
     /** Odnowienie dzierżawy (klient co kilka sekund przedłuża swoją blokadę). */
-    public LockInfoDTO renewEditLock(String title, String token)
-            throws NotFoundException, PageLockedException {
+    public LockInfoDTO renewEditLock(String title, String token) throws WikiException {
         Page p = require(title);
         long now = clock.now();
         p.lock().writeLock().lock();
@@ -357,7 +355,7 @@ public class WikiStore {
     }
 
     /** Zwolnienie blokady (anulowanie edycji). */
-    public void releaseEditLock(String title, String token) throws NotFoundException {
+    public void releaseEditLock(String title, String token) throws WikiException {
         Page p = require(title);
         p.lock().writeLock().lock();
         try {
@@ -376,7 +374,7 @@ public class WikiStore {
      * Inkrementacja wersji + dopis do historii są niepodzielne → brak "lost update".
      */
     public PageDTO savePage(String title, String token, String userName, String newContent, long baseVersion)
-            throws NotFoundException, AuthorizationException, VersionConflictException, ValidationException {
+            throws WikiException {
         requireContent(newContent);
         Page p = require(title);
         long now = clock.now();
@@ -384,9 +382,9 @@ public class WikiStore {
         try {
             EditLock cur = p.editLock();
             if (cur == null || cur.isExpired(now) || !cur.heldBy(token))
-                throw new AuthorizationException("Brak aktywnej blokady tej strony — nie można zapisać.");
+                throw new WikiException("Brak aktywnej blokady tej strony — nie można zapisać.");
             if (p.version() != baseVersion)
-                throw new VersionConflictException(p.version());
+                throw new WikiException("Konflikt wersji — strona została zmieniona (aktualna wersja: " + p.version() + ").");
             long newVersion = p.version() + 1;
             p.setContent(newContent);
             p.setVersion(newVersion);
@@ -402,7 +400,7 @@ public class WikiStore {
     }
 
     // ---------------------------------------------------------------- historia (blokada odczytu)
-    public List<RevisionDTO> getHistory(String title) throws NotFoundException {
+    public List<RevisionDTO> getHistory(String title) throws WikiException {
         Page p = require(title);
         p.lock().readLock().lock();
         try {
@@ -412,12 +410,12 @@ public class WikiStore {
         }
     }
 
-    public PageDTO getRevision(String title, int revisionIndex) throws NotFoundException, ValidationException {
+    public PageDTO getRevision(String title, int revisionIndex) throws WikiException {
         Page p = require(title);
         p.lock().readLock().lock();
         try {
             if (revisionIndex < 1 || revisionIndex > p.history().size())
-                throw new ValidationException("Brak rewizji o numerze " + revisionIndex + ".");
+                throw new WikiException("Brak rewizji o numerze " + revisionIndex + ".");
             RevisionDTO r = p.history().get(revisionIndex - 1);
             return new PageDTO(p.title(), r.getContent(), r.getIndex(), r.getEditor(), r.getTimestamp(), null);
         } finally {
@@ -427,7 +425,7 @@ public class WikiStore {
 
     /** Przywraca starą rewizję jako NOWĄ wersję (zachowuje pełną historię). */
     public PageDTO restoreRevision(String title, String token, String userName, int revisionIndex)
-            throws NotFoundException, ValidationException, PageLockedException {
+            throws WikiException {
         Page p = require(title);
         long now = clock.now();
         p.lock().writeLock().lock();
@@ -436,7 +434,7 @@ public class WikiStore {
             if (cur != null && !cur.isExpired(now) && !cur.heldBy(token))
                 throw new PageLockedException(cur.holderName(), Math.max(0, cur.expiresAt() - now) / 1000);
             if (revisionIndex < 1 || revisionIndex > p.history().size())
-                throw new ValidationException("Brak rewizji o numerze " + revisionIndex + ".");
+                throw new WikiException("Brak rewizji o numerze " + revisionIndex + ".");
             RevisionDTO old = p.history().get(revisionIndex - 1);
             long newVersion = p.version() + 1;
             p.setContent(old.getContent());
@@ -453,7 +451,7 @@ public class WikiStore {
     }
 
     /** Wymuszone zdjęcie blokady (administrator), niezależnie od posiadacza. */
-    public void forceUnlock(String title) throws NotFoundException {
+    public void forceUnlock(String title) throws WikiException {
         Page p = require(title);
         p.lock().writeLock().lock();
         try {

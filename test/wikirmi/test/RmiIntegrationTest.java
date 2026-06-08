@@ -84,7 +84,7 @@ public class RmiIntegrationTest {
                 "regular USER created a page over RMI");
         boolean userDeleteBlocked = false;
         try { u.deletePage("Strona użytkownika"); }
-        catch (wikirmi.common.exceptions.AuthorizationException ex) { userDeleteBlocked = true; }
+        catch (wikirmi.common.exceptions.WikiException ex) { userDeleteBlocked = true; }
         check(userDeleteBlocked, "regular USER cannot delete pages (admin-only)");
 
         System.out.println("RMI INTEGRATION OK: race prevented over the wire, save persisted, callback delivered.");

@@ -1,8 +1,7 @@
 package wikirmi.test;
 
 import wikirmi.common.Role;
-import wikirmi.common.exceptions.AuthenticationException;
-import wikirmi.common.exceptions.AuthorizationException;
+import wikirmi.common.exceptions.WikiException;
 import wikirmi.server.store.Clock;
 import wikirmi.server.store.WikiStore;
 
@@ -22,12 +21,12 @@ public class SemaforTest {
 
         // kontrola ról (gdy obie sesje są ważne)
         Assert.isTrue(s.requireSession(tUser) != null, "USER przechodzi podstawową kontrolę (może tworzyć strony)");
-        Assert.throwsEx(AuthorizationException.class, () -> s.requireAdmin(tUser),
+        Assert.throwsEx(WikiException.class, () -> s.requireAdmin(tUser),
                 "USER nie przechodzi kontroli administratora (nie usunie strony)");
         Assert.isTrue(s.requireAdmin(tAdmin) != null, "ADMIN przechodzi kontrolę administratora");
 
         // SEMAFOR: trzecie logowanie ponad limit jest odrzucane
-        Assert.throwsEx(AuthenticationException.class, () -> s.openSession("carol", Role.USER),
+        Assert.throwsEx(WikiException.class, () -> s.openSession("carol", Role.USER),
                 "trzecie logowanie ponad limit semafora jest odrzucane");
 
         // po wylogowaniu jednego klienta pozwolenie wraca i nowy może się zalogować
@@ -35,7 +34,7 @@ public class SemaforTest {
         String tCarol = s.openSession("carol", Role.USER);
         Assert.eq(s.requireSession(tCarol).username, "carol", "pozwolenie odzyskane po wylogowaniu");
 
-        Assert.throwsEx(AuthenticationException.class, () -> s.requireSession("zly-token"),
+        Assert.throwsEx(WikiException.class, () -> s.requireSession("zly-token"),
                 "nieznany token jest odrzucany");
     }
 }
