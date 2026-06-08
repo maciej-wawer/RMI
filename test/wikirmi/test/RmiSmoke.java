@@ -5,8 +5,7 @@ import java.rmi.registry.Registry;
 
 import wikirmi.common.Role;
 import wikirmi.common.WikiService;
-import wikirmi.common.dto.PageDTO;
-import wikirmi.common.dto.SessionDTO;
+import wikirmi.common.dto.*;
 import wikirmi.server.WikiServiceImpl;
 import wikirmi.server.auth.PasswordHasher;
 import wikirmi.server.model.User;
@@ -32,9 +31,9 @@ public class RmiSmoke {
         reg.rebind("WikiService", impl);
 
         WikiService stub = (WikiService) LocateRegistry.getRegistry("localhost", port).lookup("WikiService");
-        SessionDTO session = stub.login("admin", "admin123");
+        Dto.Session session = stub.login("admin", "admin123");
         stub.createPage(session.getToken(), "Test", "treść testowa ąęś");
-        PageDTO p = stub.getPage(session.getToken(), "Test");
+        Dto.Page p = stub.getPage(session.getToken(), "Test");
 
         if (!"treść testowa ąęś".equals(p.getContent()))
             throw new AssertionError("content mismatch over RMI: " + p.getContent());

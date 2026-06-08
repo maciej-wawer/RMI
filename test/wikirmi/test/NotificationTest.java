@@ -4,8 +4,7 @@ import java.rmi.RemoteException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import wikirmi.common.WikiClientCallback;
-import wikirmi.common.dto.LockInfoDTO;
-import wikirmi.common.dto.PageSummaryDTO;
+import wikirmi.common.dto.*;
 import wikirmi.server.notify.NotificationService;
 
 /** A live client receives pushes; a client whose callback throws RemoteException is dropped. */
@@ -15,13 +14,13 @@ public class NotificationTest {
         final AtomicInteger changed = new AtomicInteger();
         final boolean dead;
         FakeClient(boolean dead) { this.dead = dead; }
-        public void onPageCreated(PageSummaryDTO p) {}
-        public void onPageChanged(PageSummaryDTO p) throws RemoteException {
+        public void onPageCreated(Dto.PageSummary p) {}
+        public void onPageChanged(Dto.PageSummary p) throws RemoteException {
             if (dead) throw new RemoteException("client disconnected");
             changed.incrementAndGet();
         }
         public void onPageDeleted(String t) {}
-        public void onLockChanged(String t, LockInfoDTO l) {}
+        public void onLockChanged(String t, Dto.LockInfo l) {}
         public void onPresenceChanged() {}
     }
 
@@ -32,7 +31,7 @@ public class NotificationTest {
         ns.subscribe("good", good);
         ns.subscribe("dead", dead);
 
-        ns.pageChanged(new PageSummaryDTO("X", 1, null, 0));
+        ns.pageChanged(new Dto.PageSummary("X", 1, null, 0));
         Thread.sleep(300);                                        // let the dispatch executor run
 
         Assert.eq(good.changed.get(), 1, "live client received the push");

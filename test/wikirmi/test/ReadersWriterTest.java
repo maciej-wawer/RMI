@@ -3,7 +3,7 @@ package wikirmi.test;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import wikirmi.common.dto.PageDTO;
+import wikirmi.common.dto.*;
 import wikirmi.server.store.Clock;
 import wikirmi.server.store.WikiStore;
 
@@ -35,7 +35,7 @@ public class ReadersWriterTest {
         Runnable reader = () -> {
             try {
                 while (!stop.get()) {
-                    PageDTO p = s.getPage("RW");
+                    Dto.Page p = s.getPage("RW");
                     String[] kv = p.getContent().substring(4).split("\\|");
                     if (!kv[0].equals(kv[1])) { torn.set("torn read: " + p.getContent()); return; }
                 }

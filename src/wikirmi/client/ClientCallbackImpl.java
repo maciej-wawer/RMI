@@ -6,8 +6,7 @@ import java.rmi.server.UnicastRemoteObject;
 import javax.swing.SwingUtilities;
 
 import wikirmi.common.WikiClientCallback;
-import wikirmi.common.dto.LockInfoDTO;
-import wikirmi.common.dto.PageSummaryDTO;
+import wikirmi.common.dto.*;
 
 /**
  * The client's remote callback object (server -> client). Exported via UnicastRemoteObject so the
@@ -22,9 +21,9 @@ public class ClientCallbackImpl extends UnicastRemoteObject implements WikiClien
         this.events = events;
     }
 
-    @Override public void onPageCreated(PageSummaryDTO page) { SwingUtilities.invokeLater(() -> events.pageCreated(page)); }
-    @Override public void onPageChanged(PageSummaryDTO page) { SwingUtilities.invokeLater(() -> events.pageChanged(page)); }
+    @Override public void onPageCreated(Dto.PageSummary page) { SwingUtilities.invokeLater(() -> events.pageCreated(page)); }
+    @Override public void onPageChanged(Dto.PageSummary page) { SwingUtilities.invokeLater(() -> events.pageChanged(page)); }
     @Override public void onPageDeleted(String title)        { SwingUtilities.invokeLater(() -> events.pageDeleted(title)); }
-    @Override public void onLockChanged(String title, LockInfoDTO lock) { SwingUtilities.invokeLater(() -> events.lockChanged(title, lock)); }
+    @Override public void onLockChanged(String title, Dto.LockInfo lock) { SwingUtilities.invokeLater(() -> events.lockChanged(title, lock)); }
     @Override public void onPresenceChanged()                { SwingUtilities.invokeLater(events::presenceChanged); }
 }

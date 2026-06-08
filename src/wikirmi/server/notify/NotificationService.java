@@ -8,8 +8,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
 import wikirmi.common.WikiClientCallback;
-import wikirmi.common.dto.LockInfoDTO;
-import wikirmi.common.dto.PageSummaryDTO;
+import wikirmi.common.dto.*;
 
 /**
  * Delivers server→client push notifications over RMI callbacks. Each event is dispatched on a
@@ -39,10 +38,10 @@ public class NotificationService {
     public void shutdown() { executor.shutdownNow(); }
 
     // ----- event API (called by WikiServiceImpl) -----
-    public void pageCreated(PageSummaryDTO page) { broadcast(cb -> cb.onPageCreated(page)); }
-    public void pageChanged(PageSummaryDTO page) { broadcast(cb -> cb.onPageChanged(page)); }
+    public void pageCreated(Dto.PageSummary page) { broadcast(cb -> cb.onPageCreated(page)); }
+    public void pageChanged(Dto.PageSummary page) { broadcast(cb -> cb.onPageChanged(page)); }
     public void pageDeleted(String title)        { broadcast(cb -> cb.onPageDeleted(title)); }
-    public void lockChanged(String title, LockInfoDTO lock) { broadcast(cb -> cb.onLockChanged(title, lock)); }
+    public void lockChanged(String title, Dto.LockInfo lock) { broadcast(cb -> cb.onLockChanged(title, lock)); }
     public void presenceChanged()                { broadcast(WikiClientCallback::onPresenceChanged); }
 
     private interface Push { void send(WikiClientCallback cb) throws RemoteException; }

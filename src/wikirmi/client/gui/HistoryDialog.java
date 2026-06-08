@@ -7,7 +7,7 @@ import java.util.List;
 import javax.swing.*;
 
 import wikirmi.client.service.WikiClientController;
-import wikirmi.common.dto.RevisionDTO;
+import wikirmi.common.dto.*;
 
 /**
  * Modal history browser. Select 1 revision to view its rendered content, or 2 to see a colored
@@ -21,7 +21,7 @@ public class HistoryDialog extends JDialog {
     private final JList<String> revisionList = new JList<>(listModel);
     private final JEditorPane viewer = new JEditorPane();
     private final JButton restoreButton = new JButton("Przywróć tę wersję");
-    private List<RevisionDTO> revisions = Collections.emptyList();
+    private List<Dto.Revision> revisions = Collections.emptyList();
 
     public HistoryDialog(MainFrame owner, WikiClientController controller, String title) {
         super(owner, "Historia: " + title, true);
@@ -59,7 +59,7 @@ public class HistoryDialog extends JDialog {
         UiUtils.async(this, () -> controller.getHistory(title), hist -> {
             revisions = hist;
             listModel.clear();
-            for (RevisionDTO r : hist) {
+            for (Dto.Revision r : hist) {
                 listModel.addElement("v" + r.getIndex() + " — " + r.getEditor() + " — " + UiUtils.formatTime(r.getTimestamp()));
             }
             if (!hist.isEmpty()) revisionList.setSelectedIndex(hist.size() - 1);
@@ -74,8 +74,8 @@ public class HistoryDialog extends JDialog {
             viewer.setText(MarkdownRenderer.toHtml(revisions.get(sel[0]).getContent()));
             viewer.setCaretPosition(0);
         } else if (sel.length == 2) {
-            RevisionDTO a = revisions.get(Math.min(sel[0], sel[1]));
-            RevisionDTO b = revisions.get(Math.max(sel[0], sel[1]));
+            Dto.Revision a = revisions.get(Math.min(sel[0], sel[1]));
+            Dto.Revision b = revisions.get(Math.max(sel[0], sel[1]));
             viewer.setText(TextDiff.toHtml(a.getContent(), b.getContent()));
             viewer.setCaretPosition(0);
         } else {
@@ -86,7 +86,7 @@ public class HistoryDialog extends JDialog {
     private void restore() {
         int[] sel = revisionList.getSelectedIndices();
         if (sel.length != 1) return;
-        final RevisionDTO r = revisions.get(sel[0]);
+        final Dto.Revision r = revisions.get(sel[0]);
         if (!UiUtils.confirm(this, "Przywrócić wersję v" + r.getIndex() + "? Zostanie zapisana jako nowa wersja.")) return;
         restoreButton.setEnabled(false);
         new SwingWorker<Void, Void>() {

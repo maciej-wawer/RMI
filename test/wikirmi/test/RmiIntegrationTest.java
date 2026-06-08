@@ -49,10 +49,10 @@ public class RmiIntegrationTest {
         AtomicInteger changed = new AtomicInteger();
         AtomicReference<String> lastLockHolder = new AtomicReference<>("(none)");
         WikiEvents recorder = new WikiEvents() {
-            public void pageCreated(PageSummaryDTO p) { }
-            public void pageChanged(PageSummaryDTO p) { changed.incrementAndGet(); }
+            public void pageCreated(Dto.PageSummary p) { }
+            public void pageChanged(Dto.PageSummary p) { changed.incrementAndGet(); }
             public void pageDeleted(String t) { }
-            public void lockChanged(String t, LockInfoDTO l) { lastLockHolder.set(l == null ? null : l.getHolder()); }
+            public void lockChanged(String t, Dto.LockInfo l) { lastLockHolder.set(l == null ? null : l.getHolder()); }
             public void presenceChanged() { }
         };
         ClientCallbackImpl cb = new ClientCallbackImpl(recorder);
@@ -65,13 +65,13 @@ public class RmiIntegrationTest {
         check(bRejected, "B rejected with PageLockedException while A holds the lock (over RMI)");
 
         // ---- A saves; version bumps; B's callback should fire ----
-        PageDTO saved = a.savePage("Wspólna", "wersja 1 (A)", 0);
+        Dto.Page saved = a.savePage("Wspólna", "wersja 1 (A)", 0);
         check(saved.getVersion() == 1, "save over RMI bumped version to 1");
         Thread.sleep(400);
         check(changed.get() >= 1, "client B received onPageChanged callback (count=" + changed.get() + ")");
 
         // ---- now B can acquire the freed lock ----
-        LockInfoDTO bl = b.acquireEditLock("Wspólna");
+        Dto.LockInfo bl = b.acquireEditLock("Wspólna");
         check(bl != null, "B acquires the lock after A finished");
 
         // ---- a regular (non-admin) user can CREATE pages but not DELETE them ----

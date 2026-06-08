@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import wikirmi.common.dto.RevisionDTO;
+import wikirmi.common.dto.*;
 
 /**
  * A wiki page plus its own {@link ReentrantReadWriteLock}. All mutable fields are read
@@ -19,7 +19,7 @@ public final class Page {
     private String lastEditor;
     private long lastModified;
     private EditLock editLock;                       // null == free to edit
-    private final List<RevisionDTO> history = new ArrayList<>();
+    private final List<Dto.Revision> history = new ArrayList<>();
     private final ReentrantReadWriteLock rw = new ReentrantReadWriteLock();
 
     public Page(String title, String content, long version, String lastEditor, long lastModified) {
@@ -43,5 +43,5 @@ public final class Page {
     public void setLastModified(long t) { this.lastModified = t; }
     public EditLock editLock() { return editLock; }
     public void setEditLock(EditLock l) { this.editLock = l; }
-    public List<RevisionDTO> history() { return history; }
+    public List<Dto.Revision> history() { return history; }
 }

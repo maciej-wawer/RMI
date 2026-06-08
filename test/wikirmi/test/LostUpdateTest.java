@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 
-import wikirmi.common.dto.PageDTO;
+import wikirmi.common.dto.*;
 import wikirmi.server.store.Clock;
 import wikirmi.server.store.WikiStore;
 
@@ -28,7 +28,7 @@ public class LostUpdateTest {
                 while (!done) {
                     try {
                         s.acquireEditLock("Doc", tok, nm);
-                        PageDTO cur = s.getPage("Doc");
+                        Dto.Page cur = s.getPage("Doc");
                         s.savePage("Doc", tok, nm, "edit by " + nm, cur.getVersion());
                         done = true;
                     } catch (Exception retry) {
@@ -40,7 +40,7 @@ public class LostUpdateTest {
         for (Future<?> f : fs) f.get();
         es.shutdownNow();
 
-        PageDTO p = s.getPage("Doc");
+        Dto.Page p = s.getPage("Doc");
         Assert.eq(p.getVersion(), n, "version incremented exactly N times (no lost update)");
         Assert.eq(s.getHistory("Doc").size(), n, "history contains exactly N revisions");
     }

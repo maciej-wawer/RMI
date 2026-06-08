@@ -1,6 +1,6 @@
 package wikirmi.test;
 
-import wikirmi.common.dto.PageDTO;
+import wikirmi.common.dto.*;
 import wikirmi.common.exceptions.PageLockedException;
 import wikirmi.server.store.Clock;
 import wikirmi.server.store.WikiStore;
@@ -13,7 +13,7 @@ public class RestoreRevisionTest {
         s.acquireEditLock("Doc", "t", "admin"); s.savePage("Doc", "t", "admin", "ALPHA", 0); // -> v1
         s.acquireEditLock("Doc", "t", "admin"); s.savePage("Doc", "t", "admin", "BETA", 1);  // -> v2
 
-        PageDTO r = s.restoreRevision("Doc", "t", "admin", 1);                                // restore v1 (ALPHA)
+        Dto.Page r = s.restoreRevision("Doc", "t", "admin", 1);                                // restore v1 (ALPHA)
         Assert.eq(r.getVersion(), 3, "restore creates a new version (v3)");
         Assert.eq(r.getContent(), "ALPHA", "restored content equals revision 1");
         Assert.eq(s.getHistory("Doc").size(), 3, "history preserved and grew to 3 revisions");

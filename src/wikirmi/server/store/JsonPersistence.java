@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import wikirmi.common.Role;
-import wikirmi.common.dto.RevisionDTO;
+import wikirmi.common.dto.*;
 import wikirmi.common.exceptions.WikiException;
 import wikirmi.server.auth.PasswordHasher;
 import wikirmi.server.model.Page;
@@ -50,7 +50,7 @@ public final class JsonPersistence {
                 m.put("lastEditor", p.lastEditor());
                 m.put("lastModified", p.lastModified());
                 List<Object> hist = new ArrayList<>();
-                for (RevisionDTO r : p.history()) {
+                for (Dto.Revision r : p.history()) {
                     Map<String, Object> rm = new LinkedHashMap<>();
                     rm.put("index", (long) r.getIndex());
                     rm.put("editor", r.getEditor());
@@ -107,7 +107,7 @@ public final class JsonPersistence {
                     if (hist != null) {
                         for (Object ho : hist) {
                             Map<?, ?> hm = (Map<?, ?>) ho;
-                            p.history().add(new RevisionDTO((int) asLong(hm.get("index")),
+                            p.history().add(new Dto.Revision((int) asLong(hm.get("index")),
                                     (String) hm.get("editor"), asLong(hm.get("timestamp")), (String) hm.get("content")));
                         }
                     }

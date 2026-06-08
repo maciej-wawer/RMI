@@ -18,15 +18,15 @@ public class SerializationTest {
     }
 
     public static void run() throws Exception {
-        LockInfoDTO lock = new LockInfoDTO("alice", 100L, 130L, 30L);
-        PageDTO page = new PageDTO("Home", "witaj świecie", 3, "alice", 111L, lock);
-        PageDTO rp = roundTrip(page);
+        Dto.LockInfo lock = new Dto.LockInfo("alice", 100L, 130L, 30L);
+        Dto.Page page = new Dto.Page("Home", "witaj świecie", 3, "alice", 111L, lock);
+        Dto.Page rp = roundTrip(page);
         Assert.eq(rp.getTitle(), "Home", "title round-trips");
         Assert.eq(rp.getContent(), "witaj świecie", "UTF-8 content round-trips");
         Assert.eq(rp.getVersion(), 3, "version round-trips");
         Assert.eq(rp.getLock().getHolder(), "alice", "nested lock DTO round-trips");
 
-        SessionDTO session = roundTrip(new SessionDTO("tok-123", new UserDTO("alice", Role.ADMIN)));
+        Dto.Session session = roundTrip(new Dto.Session("tok-123", new Dto.User("alice", Role.ADMIN)));
         Assert.eq(session.getToken(), "tok-123", "token round-trips");
         Assert.eq(session.getUser().getRole(), Role.ADMIN, "enum role round-trips");
     }

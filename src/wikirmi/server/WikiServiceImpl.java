@@ -35,13 +35,13 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
 
     // ------------------------------------------------------------ logowanie
     @Override
-    public SessionDTO login(String username, String password) throws RemoteException, WikiException {
+    public Dto.Session login(String username, String password) throws RemoteException, WikiException {
         User user = store.getUser(username);
         if (user == null || !PasswordHasher.verify(password, user.salt(), user.hash()))
             throw new WikiException("Błędny login lub hasło.");
         String token = store.openSession(username, user.role());      // SEMAFOR: pobiera pozwolenie
         notify.presenceChanged();
-        return new SessionDTO(token, new UserDTO(username, user.role()));
+        return new Dto.Session(token, new Dto.User(username, user.role()));
     }
 
     @Override
@@ -73,7 +73,7 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
     }
 
     @Override
-    public List<UserDTO> listUsers(String token) throws RemoteException, WikiException {
+    public List<Dto.User> listUsers(String token) throws RemoteException, WikiException {
         store.requireAdmin(token);
         return store.listUsers();
     }
@@ -84,9 +84,9 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
             throws RemoteException, WikiException {
         // Tworzyć strony może każdy zalogowany użytkownik (usuwanie tylko admin).
         WikiStore.Session s = store.requireSession(token);
-        PageDTO p = store.createPage(title, initialContent, s.username);
+        Dto.Page p = store.createPage(title, initialContent, s.username);
         persist.run();
-        notify.pageCreated(new PageSummaryDTO(p.getTitle(), p.getVersion(), null, p.getLastModified()));
+        notify.pageCreated(new Dto.PageSummary(p.getTitle(), p.getVersion(), null, p.getLastModified()));
     }
 
     @Override
@@ -99,19 +99,19 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
 
     // ------------------------------------------------------------ przeglądanie / wyszukiwanie
     @Override
-    public List<PageSummaryDTO> listPages(String token) throws RemoteException, WikiException {
+    public List<Dto.PageSummary> listPages(String token) throws RemoteException, WikiException {
         store.requireSession(token);
         return store.listPages();
     }
 
     @Override
-    public List<PageSummaryDTO> searchPages(String token, String query) throws RemoteException, WikiException {
+    public List<Dto.PageSummary> searchPages(String token, String query) throws RemoteException, WikiException {
         store.requireSession(token);
         return store.search(query);
     }
 
     @Override
-    public PageDTO getPage(String token, String title) throws RemoteException, WikiException {
+    public Dto.Page getPage(String token, String title) throws RemoteException, WikiException {
         store.requireSession(token);
         return store.getPage(title);
     }
@@ -138,9 +138,9 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
 
     // ------------------------------------------------------------ edycja (z blokadą)
     @Override
-    public LockInfoDTO acquireEditLock(String token, String title) throws RemoteException, WikiException {
+    public Dto.LockInfo acquireEditLock(String token, String title) throws RemoteException, WikiException {
         WikiStore.Session s = store.requireSession(token);
-        LockInfoDTO lock = store.acquireEditLock(title, s.token, s.username);
+        Dto.LockInfo lock = store.acquireEditLock(title, s.token, s.username);
         notify.lockChanged(title, lock);
         return lock;
     }
@@ -159,37 +159,37 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
     }
 
     @Override
-    public PageDTO savePage(String token, String title, String newContent, long baseVersion)
+    public Dto.Page savePage(String token, String title, String newContent, long baseVersion)
             throws RemoteException, WikiException {
         WikiStore.Session s = store.requireSession(token);
-        PageDTO p = store.savePage(title, s.token, s.username, newContent, baseVersion);
+        Dto.Page p = store.savePage(title, s.token, s.username, newContent, baseVersion);
         persist.run();
-        notify.pageChanged(new PageSummaryDTO(p.getTitle(), p.getVersion(), null, p.getLastModified()));
+        notify.pageChanged(new Dto.PageSummary(p.getTitle(), p.getVersion(), null, p.getLastModified()));
         notify.lockChanged(title, null);
         return p;
     }
 
     // ------------------------------------------------------------ historia
     @Override
-    public List<RevisionDTO> getHistory(String token, String title) throws RemoteException, WikiException {
+    public List<Dto.Revision> getHistory(String token, String title) throws RemoteException, WikiException {
         store.requireSession(token);
         return store.getHistory(title);
     }
 
     @Override
-    public PageDTO getRevision(String token, String title, int revisionIndex)
+    public Dto.Page getRevision(String token, String title, int revisionIndex)
             throws RemoteException, WikiException {
         store.requireSession(token);
         return store.getRevision(title, revisionIndex);
     }
 
     @Override
-    public PageDTO restoreRevision(String token, String title, int revisionIndex)
+    public Dto.Page restoreRevision(String token, String title, int revisionIndex)
             throws RemoteException, WikiException {
         WikiStore.Session s = store.requireSession(token);
-        PageDTO p = store.restoreRevision(title, s.token, s.username, revisionIndex);
+        Dto.Page p = store.restoreRevision(title, s.token, s.username, revisionIndex);
         persist.run();
-        notify.pageChanged(new PageSummaryDTO(p.getTitle(), p.getVersion(), null, p.getLastModified()));
+        notify.pageChanged(new Dto.PageSummary(p.getTitle(), p.getVersion(), null, p.getLastModified()));
         notify.lockChanged(title, null);
         return p;
     }

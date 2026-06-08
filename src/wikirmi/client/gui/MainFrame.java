@@ -16,15 +16,13 @@ import javax.swing.table.DefaultTableModel;
 import wikirmi.client.ClientCallbackImpl;
 import wikirmi.client.WikiEvents;
 import wikirmi.client.service.WikiClientController;
-import wikirmi.common.dto.LockInfoDTO;
-import wikirmi.common.dto.PageSummaryDTO;
-import wikirmi.common.dto.UserDTO;
+import wikirmi.common.dto.*;
 
 /** Main application window: menu/toolbar, page list, rendered content, live presence, status bar. */
 public class MainFrame extends JFrame implements WikiEvents {
 
     private final WikiClientController controller;
-    private final UserDTO user;
+    private final Dto.User user;
 
     private final JTextField searchField = new JTextField(16);
     private final DefaultTableModel tableModel =
@@ -37,11 +35,11 @@ public class MainFrame extends JFrame implements WikiEvents {
     private final JLabel statusConn = new JLabel(" ");
     private final JLabel statusPage = new JLabel(" ");
 
-    private List<PageSummaryDTO> currentPages = java.util.Collections.emptyList();
+    private List<Dto.PageSummary> currentPages = java.util.Collections.emptyList();
     private String viewedTitle;
     private ClientCallbackImpl callback;
 
-    public MainFrame(WikiClientController controller, UserDTO user) {
+    public MainFrame(WikiClientController controller, Dto.User user) {
         super("WikiRMI — " + user.getUsername() + " (" + user.getRole() + ")");
         this.controller = controller;
         this.user = user;
@@ -220,11 +218,11 @@ public class MainFrame extends JFrame implements WikiEvents {
                 pages -> { setPages(pages); reselect(selectTitle); });
     }
 
-    private void setPages(List<PageSummaryDTO> pages) {
+    private void setPages(List<Dto.PageSummary> pages) {
         currentPages = pages;
         tableModel.setRowCount(0);
         List<String> activeEdits = new ArrayList<>();
-        for (PageSummaryDTO p : pages) {
+        for (Dto.PageSummary p : pages) {
             tableModel.addRow(new Object[]{p.getTitle(), p.getVersion(), p.getLockedBy() == null ? "" : p.getLockedBy()});
             if (p.getLockedBy() != null) activeEdits.add(p.getTitle() + " — " + p.getLockedBy());
         }
@@ -352,12 +350,12 @@ public class MainFrame extends JFrame implements WikiEvents {
     }
 
     // ---------------------------------------------------------------- WikiEvents (server push, on EDT)
-    @Override public void pageCreated(PageSummaryDTO page) { reload(); }
-    @Override public void pageChanged(PageSummaryDTO page) {
+    @Override public void pageCreated(Dto.PageSummary page) { reload(); }
+    @Override public void pageChanged(Dto.PageSummary page) {
         reload();
         if (page.getTitle().equals(viewedTitle)) loadContent(viewedTitle);
     }
     @Override public void pageDeleted(String title) { reload(); }
-    @Override public void lockChanged(String title, LockInfoDTO lock) { reload(); }
+    @Override public void lockChanged(String title, Dto.LockInfo lock) { reload(); }
     @Override public void presenceChanged() { refreshOnline(); }
 }

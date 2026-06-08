@@ -225,17 +225,17 @@ public class WikiStore {
         users.put(username, new User(username, salt, hash, u.role()));
     }
 
-    public List<UserDTO> listUsers() {
-        List<UserDTO> out = new ArrayList<>();
-        for (User u : users.values()) out.add(new UserDTO(u.username(), u.role()));
-        out.sort(Comparator.comparing(UserDTO::getUsername));
+    public List<Dto.User> listUsers() {
+        List<Dto.User> out = new ArrayList<>();
+        for (User u : users.values()) out.add(new Dto.User(u.username(), u.role()));
+        out.sort(Comparator.comparing(Dto.User::getUsername));
         return out;
     }
 
     public Collection<User> allUsers() { return users.values(); }     // migawka do zapisu
 
     // ---------------------------------------------------------------- strony: tworzenie / usuwanie
-    public PageDTO createPage(String title, String content, String editor) throws WikiException {
+    public Dto.Page createPage(String title, String content, String editor) throws WikiException {
         requireTitle(title);
         String body = (content == null) ? "" : content;
         requireContent(body);
@@ -270,7 +270,7 @@ public class WikiStore {
     // czytelników naraz; writeLock() jest wyłączny (jeden piszący, zero czytelników).
 
     /** Odczyt strony pod WSPÓŁDZIELONĄ blokadą odczytu (wielu czytelników naraz). */
-    public PageDTO getPage(String title) throws WikiException {
+    public Dto.Page getPage(String title) throws WikiException {
         Page p = require(title);
         p.lock().readLock().lock();
         try {
@@ -280,8 +280,8 @@ public class WikiStore {
         }
     }
 
-    public List<PageSummaryDTO> listPages() {
-        List<PageSummaryDTO> out = new ArrayList<>();
+    public List<Dto.PageSummary> listPages() {
+        List<Dto.PageSummary> out = new ArrayList<>();
         long now = clock.now();
         for (Page p : pages.values()) {
             p.lock().readLock().lock();
@@ -291,14 +291,14 @@ public class WikiStore {
                 p.lock().readLock().unlock();
             }
         }
-        out.sort(Comparator.comparing(PageSummaryDTO::getTitle));
+        out.sort(Comparator.comparing(Dto.PageSummary::getTitle));
         return out;
     }
 
-    public List<PageSummaryDTO> search(String query) {
+    public List<Dto.PageSummary> search(String query) {
         String q = (query == null) ? "" : query.toLowerCase();
         long now = clock.now();
-        List<PageSummaryDTO> out = new ArrayList<>();
+        List<Dto.PageSummary> out = new ArrayList<>();
         for (Page p : pages.values()) {
             p.lock().readLock().lock();
             try {
@@ -308,7 +308,7 @@ public class WikiStore {
                 p.lock().readLock().unlock();
             }
         }
-        out.sort(Comparator.comparing(PageSummaryDTO::getTitle));
+        out.sort(Comparator.comparing(Dto.PageSummary::getTitle));
         return out;
     }
 
@@ -318,7 +318,7 @@ public class WikiStore {
      * wpuści tylko jeden wątek naraz, więc DOKŁADNIE JEDEN założy dzierżawę edycji,
      * a pozostali zobaczą ją zajętą i dostaną PageLockedException.
      */
-    public LockInfoDTO acquireEditLock(String title, String token, String userName) throws WikiException {
+    public Dto.LockInfo acquireEditLock(String title, String token, String userName) throws WikiException {
         Page p = require(title);
         long now = clock.now();
         p.lock().writeLock().lock();
@@ -338,7 +338,7 @@ public class WikiStore {
     }
 
     /** Odnowienie dzierżawy (klient co kilka sekund przedłuża swoją blokadę). */
-    public LockInfoDTO renewEditLock(String title, String token) throws WikiException {
+    public Dto.LockInfo renewEditLock(String title, String token) throws WikiException {
         Page p = require(title);
         long now = clock.now();
         p.lock().writeLock().lock();
@@ -373,7 +373,7 @@ public class WikiStore {
      *     zmienił stronę, niezgodna baseVersion zatrzyma zapis.
      * Inkrementacja wersji + dopis do historii są niepodzielne → brak "lost update".
      */
-    public PageDTO savePage(String title, String token, String userName, String newContent, long baseVersion)
+    public Dto.Page savePage(String title, String token, String userName, String newContent, long baseVersion)
             throws WikiException {
         requireContent(newContent);
         Page p = require(title);
@@ -390,7 +390,7 @@ public class WikiStore {
             p.setVersion(newVersion);
             p.setLastEditor(userName);
             p.setLastModified(now);
-            p.history().add(new RevisionDTO((int) newVersion, userName, now, newContent));
+            p.history().add(new Dto.Revision((int) newVersion, userName, now, newContent));
             p.setEditLock(null);                            // koniec edycji -> zwolnij dzierżawę
             zliczZapis();                                   // MONITOR: policz zapis (synchronized)
             return toDTO(p, now);
@@ -400,7 +400,7 @@ public class WikiStore {
     }
 
     // ---------------------------------------------------------------- historia (blokada odczytu)
-    public List<RevisionDTO> getHistory(String title) throws WikiException {
+    public List<Dto.Revision> getHistory(String title) throws WikiException {
         Page p = require(title);
         p.lock().readLock().lock();
         try {
@@ -410,21 +410,21 @@ public class WikiStore {
         }
     }
 
-    public PageDTO getRevision(String title, int revisionIndex) throws WikiException {
+    public Dto.Page getRevision(String title, int revisionIndex) throws WikiException {
         Page p = require(title);
         p.lock().readLock().lock();
         try {
             if (revisionIndex < 1 || revisionIndex > p.history().size())
                 throw new WikiException("Brak rewizji o numerze " + revisionIndex + ".");
-            RevisionDTO r = p.history().get(revisionIndex - 1);
-            return new PageDTO(p.title(), r.getContent(), r.getIndex(), r.getEditor(), r.getTimestamp(), null);
+            Dto.Revision r = p.history().get(revisionIndex - 1);
+            return new Dto.Page(p.title(), r.getContent(), r.getIndex(), r.getEditor(), r.getTimestamp(), null);
         } finally {
             p.lock().readLock().unlock();
         }
     }
 
     /** Przywraca starą rewizję jako NOWĄ wersję (zachowuje pełną historię). */
-    public PageDTO restoreRevision(String title, String token, String userName, int revisionIndex)
+    public Dto.Page restoreRevision(String title, String token, String userName, int revisionIndex)
             throws WikiException {
         Page p = require(title);
         long now = clock.now();
@@ -435,13 +435,13 @@ public class WikiStore {
                 throw new PageLockedException(cur.holderName(), Math.max(0, cur.expiresAt() - now) / 1000);
             if (revisionIndex < 1 || revisionIndex > p.history().size())
                 throw new WikiException("Brak rewizji o numerze " + revisionIndex + ".");
-            RevisionDTO old = p.history().get(revisionIndex - 1);
+            Dto.Revision old = p.history().get(revisionIndex - 1);
             long newVersion = p.version() + 1;
             p.setContent(old.getContent());
             p.setVersion(newVersion);
             p.setLastEditor(userName);
             p.setLastModified(now);
-            p.history().add(new RevisionDTO((int) newVersion,
+            p.history().add(new Dto.Revision((int) newVersion,
                     userName + " (przywrócono z v" + revisionIndex + ")", now, old.getContent()));
             p.setEditLock(null);
             return toDTO(p, now);
@@ -462,19 +462,19 @@ public class WikiStore {
     }
 
     // ---------------------------------------------------------------- mapowanie na DTO (pod blokadą wołającego)
-    private PageDTO toDTO(Page p, long now) {
-        return new PageDTO(p.title(), p.content(), p.version(), p.lastEditor(), p.lastModified(),
+    private Dto.Page toDTO(Page p, long now) {
+        return new Dto.Page(p.title(), p.content(), p.version(), p.lastEditor(), p.lastModified(),
                 toLockInfo(p.editLock(), now));
     }
 
-    private PageSummaryDTO toSummary(Page p, long now) {
+    private Dto.PageSummary toSummary(Page p, long now) {
         EditLock l = p.editLock();
         String by = (l != null && !l.isExpired(now)) ? l.holderName() : null;
-        return new PageSummaryDTO(p.title(), p.version(), by, p.lastModified());
+        return new Dto.PageSummary(p.title(), p.version(), by, p.lastModified());
     }
 
-    private LockInfoDTO toLockInfo(EditLock l, long now) {
+    private Dto.LockInfo toLockInfo(EditLock l, long now) {
         if (l == null || l.isExpired(now)) return null;
-        return new LockInfoDTO(l.holderName(), l.acquiredAt(), l.expiresAt(), Math.max(0, l.expiresAt() - now));
+        return new Dto.LockInfo(l.holderName(), l.acquiredAt(), l.expiresAt(), Math.max(0, l.expiresAt() - now));
     }
 }

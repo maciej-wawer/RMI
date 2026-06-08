@@ -7,8 +7,7 @@ import javax.swing.*;
 
 import wikirmi.client.service.WikiClientController;
 import wikirmi.common.Role;
-import wikirmi.common.dto.PageSummaryDTO;
-import wikirmi.common.dto.UserDTO;
+import wikirmi.common.dto.*;
 
 /** Modal admin console: create/delete pages (skeletons) and create/delete user accounts. */
 public class AdminDialog extends JDialog {
@@ -88,7 +87,7 @@ public class AdminDialog extends JDialog {
     private void refreshPages() {
         UiUtils.async(this, () -> controller.listPages(), pages -> {
             pagesModel.clear();
-            for (PageSummaryDTO p : pages) pagesModel.addElement(p.getTitle());
+            for (Dto.PageSummary p : pages) pagesModel.addElement(p.getTitle());
         });
     }
 
@@ -139,7 +138,7 @@ public class AdminDialog extends JDialog {
     private void refreshUsers() {
         UiUtils.async(this, () -> controller.listUsers(), users -> {
             usersModel.clear();
-            for (UserDTO u : users) usersModel.addElement(u.getUsername() + " (" + u.getRole() + ")");
+            for (Dto.User u : users) usersModel.addElement(u.getUsername() + " (" + u.getRole() + ")");
         });
     }
 }

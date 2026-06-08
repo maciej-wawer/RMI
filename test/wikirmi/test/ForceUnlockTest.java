@@ -1,6 +1,6 @@
 package wikirmi.test;
 
-import wikirmi.common.dto.LockInfoDTO;
+import wikirmi.common.dto.*;
 import wikirmi.common.exceptions.PageLockedException;
 import wikirmi.server.store.Clock;
 import wikirmi.server.store.WikiStore;
@@ -16,7 +16,7 @@ public class ForceUnlockTest {
 
         s.forceUnlock("P");
 
-        LockInfoDTO l = s.acquireEditLock("P", "bob", "bob");
+        Dto.LockInfo l = s.acquireEditLock("P", "bob", "bob");
         Assert.isTrue(l != null, "bob acquires the lock right after force-unlock");
     }
 }

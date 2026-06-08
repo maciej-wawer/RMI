@@ -11,6 +11,9 @@ wiki.json.tmp
 # UI render/capture artifacts (regenerable via RenderShot)
 ui-*.png
 
+# wyciągnięty tekst skryptu (materiał pomocniczy, nie część projektu)
+skrypt.txt
+
 # IDE
 .idea/
 *.iml

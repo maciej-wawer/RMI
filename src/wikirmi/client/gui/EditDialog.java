@@ -7,7 +7,7 @@ import java.awt.event.WindowEvent;
 import javax.swing.*;
 
 import wikirmi.client.service.WikiClientController;
-import wikirmi.common.dto.PageDTO;
+import wikirmi.common.dto.*;
 
 /**
  * Modal page editor. The edit-lock is already held when this opens (acquired by the caller).
@@ -30,7 +30,7 @@ public class EditDialog extends JDialog {
     private int secondsLeft;
     private boolean closedBySave = false;
 
-    public EditDialog(MainFrame owner, WikiClientController controller, PageDTO page) {
+    public EditDialog(MainFrame owner, WikiClientController controller, Dto.Page page) {
         super(owner, "Edycja: " + page.getTitle(), true);
         this.controller = controller;
         this.title = page.getTitle();
@@ -108,8 +108,8 @@ public class EditDialog extends JDialog {
     private void save() {
         saveButton.setEnabled(false);
         final String text = editArea.getText();
-        new SwingWorker<PageDTO, Void>() {
-            @Override protected PageDTO doInBackground() throws Exception { return controller.savePage(title, text, baseVersion); }
+        new SwingWorker<Dto.Page, Void>() {
+            @Override protected Dto.Page doInBackground() throws Exception { return controller.savePage(title, text, baseVersion); }
             @Override protected void done() {
                 try {
                     get();

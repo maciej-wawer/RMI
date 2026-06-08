@@ -1,6 +1,6 @@
 package wikirmi.test;
 
-import wikirmi.common.dto.LockInfoDTO;
+import wikirmi.common.dto.*;
 import wikirmi.common.exceptions.PageLockedException;
 import wikirmi.server.store.Clock;
 import wikirmi.server.store.WikiStore;
@@ -24,7 +24,7 @@ public class LockExpiryTest {
         java.util.List<String> freed = s.reapExpiredLocks();      // one reaper tick
         Assert.isTrue(freed.contains("P"), "reaper reclaimed the expired lock");
 
-        LockInfoDTO l = s.acquireEditLock("P", "bob", "bob");     // bob can now edit
+        Dto.LockInfo l = s.acquireEditLock("P", "bob", "bob");     // bob can now edit
         Assert.isTrue(l != null, "another user acquires the lock after reaping");
     }
 }

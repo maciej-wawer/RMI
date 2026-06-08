@@ -6,7 +6,7 @@ import javax.swing.*;
 
 import wikirmi.client.service.WikiClientController;
 import wikirmi.common.Protocol;
-import wikirmi.common.dto.UserDTO;
+import wikirmi.common.dto.*;
 
 /** Connection + login window. On success it opens the {@link MainFrame}. */
 public class LoginFrame extends JFrame {
@@ -62,15 +62,15 @@ public class LoginFrame extends JFrame {
             return;
         }
         loginButton.setEnabled(false);
-        new SwingWorker<UserDTO, Void>() {
-            @Override protected UserDTO doInBackground() throws Exception {
+        new SwingWorker<Dto.User, Void>() {
+            @Override protected Dto.User doInBackground() throws Exception {
                 controller.connect(host, port);
                 return controller.login(username, password);
             }
             @Override protected void done() {
                 loginButton.setEnabled(true);
                 try {
-                    UserDTO user = get();
+                    Dto.User user = get();
                     new MainFrame(controller, user).setVisible(true);
                     dispose();
                 } catch (Exception ex) {

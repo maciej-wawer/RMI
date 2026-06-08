@@ -15,36 +15,36 @@ import wikirmi.common.exceptions.WikiException;
 public interface WikiService extends Remote {
 
     // --- Authentication ---
-    SessionDTO login(String username, String password) throws RemoteException, WikiException;
+    Dto.Session login(String username, String password) throws RemoteException, WikiException;
     void logout(String token) throws RemoteException, WikiException;
 
     // --- Admin only: the administrator creates page skeletons and user accounts ---
     void createUser(String token, String username, String password, Role role) throws RemoteException, WikiException;
     void deleteUser(String token, String username) throws RemoteException, WikiException;
-    List<UserDTO> listUsers(String token) throws RemoteException, WikiException;
+    List<Dto.User> listUsers(String token) throws RemoteException, WikiException;
     void createPage(String token, String title, String initialContent) throws RemoteException, WikiException;
     void deletePage(String token, String title) throws RemoteException, WikiException;
 
     // --- Browse / search (any authenticated user) ---
-    List<PageSummaryDTO> listPages(String token) throws RemoteException, WikiException;
-    List<PageSummaryDTO> searchPages(String token, String query) throws RemoteException, WikiException;
-    PageDTO getPage(String token, String title) throws RemoteException, WikiException;
+    List<Dto.PageSummary> listPages(String token) throws RemoteException, WikiException;
+    List<Dto.PageSummary> searchPages(String token, String query) throws RemoteException, WikiException;
+    Dto.Page getPage(String token, String title) throws RemoteException, WikiException;
     List<String> listOnlineUsers(String token) throws RemoteException, WikiException;
 
     // --- Account ---
     void changePassword(String token, String oldPassword, String newPassword) throws RemoteException, WikiException;
 
     // --- Editing (lock-based) ---
-    LockInfoDTO acquireEditLock(String token, String title) throws RemoteException, WikiException;
+    Dto.LockInfo acquireEditLock(String token, String title) throws RemoteException, WikiException;
     void renewEditLock(String token, String title) throws RemoteException, WikiException;
     void releaseEditLock(String token, String title) throws RemoteException, WikiException;
-    PageDTO savePage(String token, String title, String newContent, long baseVersion) throws RemoteException, WikiException;
+    Dto.Page savePage(String token, String title, String newContent, long baseVersion) throws RemoteException, WikiException;
 
     // --- History ---
-    List<RevisionDTO> getHistory(String token, String title) throws RemoteException, WikiException;
-    PageDTO getRevision(String token, String title, int revisionIndex) throws RemoteException, WikiException;
+    List<Dto.Revision> getHistory(String token, String title) throws RemoteException, WikiException;
+    Dto.Page getRevision(String token, String title, int revisionIndex) throws RemoteException, WikiException;
     /** Restore a page to an earlier revision (written as a new revision). */
-    PageDTO restoreRevision(String token, String title, int revisionIndex) throws RemoteException, WikiException;
+    Dto.Page restoreRevision(String token, String title, int revisionIndex) throws RemoteException, WikiException;
 
     // --- Admin: lock management ---
     /** Force-release any edit-lock on a page (admin only). */

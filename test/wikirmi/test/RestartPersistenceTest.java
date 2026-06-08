@@ -4,7 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import wikirmi.common.Role;
-import wikirmi.common.dto.PageDTO;
+import wikirmi.common.dto.*;
 import wikirmi.server.auth.PasswordHasher;
 import wikirmi.server.store.Clock;
 import wikirmi.server.store.JsonPersistence;
@@ -21,14 +21,14 @@ public class RestartPersistenceTest {
             s1.createUser("alice", salt, PasswordHasher.hash("pw", salt), Role.ADMIN);
             s1.createPage("Home", "hello", "alice");
             s1.acquireEditLock("Home", "t", "alice");
-            PageDTO cur = s1.getPage("Home");
+            Dto.Page cur = s1.getPage("Home");
             s1.savePage("Home", "t", "alice", "edited", cur.getVersion());
             JsonPersistence.save(s1, f);
 
             WikiStore s2 = new WikiStore(30000, Clock.SYSTEM);      // "restarted" server
             JsonPersistence.load(s2, f);
 
-            PageDTO p = s2.getPage("Home");
+            Dto.Page p = s2.getPage("Home");
             Assert.eq(p.getContent(), "edited", "page content survived restart");
             Assert.eq(p.getVersion(), 1, "page version survived restart");
             Assert.eq(s2.getHistory("Home").size(), 1, "edit history survived restart");

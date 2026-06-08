@@ -11,7 +11,7 @@ import wikirmi.client.gui.HistoryDialog;
 import wikirmi.client.gui.MainFrame;
 import wikirmi.client.service.WikiClientController;
 import wikirmi.common.Role;
-import wikirmi.common.dto.PageDTO;
+import wikirmi.common.dto.*;
 import wikirmi.server.WikiServiceImpl;
 import wikirmi.server.auth.PasswordHasher;
 import wikirmi.server.model.User;
@@ -39,7 +39,7 @@ public class GuiConstructionSmoke {
         c.connect("localhost", port);
         c.login("admin", "admin123");
         c.createPage("P1", "treść strony");
-        final PageDTO page = c.getPage("P1");
+        final Dto.Page page = c.getPage("P1");
 
         final Throwable[] err = new Throwable[1];
         SwingUtilities.invokeAndWait(() -> {

@@ -3,19 +3,18 @@ package wikirmi.common;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 
-import wikirmi.common.dto.LockInfoDTO;
-import wikirmi.common.dto.PageSummaryDTO;
+import wikirmi.common.dto.*;
 
 /**
  * Remote interface implemented by the client so the server can push live updates
  * (the reverse RMI direction). Registered via {@link WikiService#subscribe}.
  */
 public interface WikiClientCallback extends Remote {
-    void onPageCreated(PageSummaryDTO page) throws RemoteException;
-    void onPageChanged(PageSummaryDTO page) throws RemoteException;
+    void onPageCreated(Dto.PageSummary page) throws RemoteException;
+    void onPageChanged(Dto.PageSummary page) throws RemoteException;
     void onPageDeleted(String title) throws RemoteException;
     /** {@code lock == null} means the page was released or its lock expired. */
-    void onLockChanged(String title, LockInfoDTO lock) throws RemoteException;
+    void onLockChanged(String title, Dto.LockInfo lock) throws RemoteException;
     /** Fired when the set of logged-in users changes (login/logout). */
     void onPresenceChanged() throws RemoteException;
 }
