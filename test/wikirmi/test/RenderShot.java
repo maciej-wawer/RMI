@@ -18,7 +18,6 @@ import wikirmi.client.service.WikiClientController;
 import wikirmi.common.Role;
 import wikirmi.server.WikiServiceImpl;
 import wikirmi.server.auth.PasswordHasher;
-import wikirmi.server.auth.SessionManager;
 import wikirmi.server.model.User;
 import wikirmi.server.notify.NotificationService;
 import wikirmi.server.store.Clock;
@@ -45,9 +44,8 @@ public class RenderShot {
         WikiStore store = new WikiStore(30000, Clock.SYSTEM);
         String salt = PasswordHasher.newSalt();
         store.addUser(new User("admin", salt, PasswordHasher.hash("admin123", salt), Role.ADMIN));
-        SessionManager sessions = new SessionManager(10);
         NotificationService notify = new NotificationService();
-        WikiServiceImpl impl = new WikiServiceImpl(store, sessions, notify, () -> { });
+        WikiServiceImpl impl = new WikiServiceImpl(store, notify, () -> { });
         Registry reg = LocateRegistry.createRegistry(port);
         reg.rebind("WikiService", impl);
 

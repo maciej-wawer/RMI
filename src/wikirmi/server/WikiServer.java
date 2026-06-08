@@ -5,43 +5,42 @@ import java.nio.file.Paths;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
-import wikirmi.server.auth.SessionManager;
-import wikirmi.server.daemon.LockReaperDaemon;
 import wikirmi.server.notify.NotificationService;
 import wikirmi.server.store.Clock;
 import wikirmi.server.store.JsonPersistence;
 import wikirmi.server.store.WikiStore;
 
 /**
- * Server entry point: builds the store (loading or seeding data), creates the RMI registry
- * in-process, binds the service, starts the lock-reaper daemon, and installs a shutdown hook
- * that saves data on exit.
+ * Punkt startowy serwera: buduje magazyn (wczytuje/seeduje dane), tworzy rejestr RMI
+ * w tym samym procesie, rejestruje usługę, uruchamia wątek sprzątający blokady i ustawia
+ * hak zamknięcia zapisujący dane.
  */
 public class WikiServer {
 
     public static void main(String[] args) throws Exception {
         Path dataFile = Paths.get(ServerConfig.DATA_FILE);
 
-        WikiStore store = new WikiStore(ServerConfig.LEASE_MS, Clock.SYSTEM);
+        // WikiStore z limitem klientów (SEMAFOR), źródłem czasu i blokadami stron.
+        WikiStore store = new WikiStore(ServerConfig.LEASE_MS, Clock.SYSTEM, ServerConfig.MAX_CLIENTS);
         JsonPersistence.loadOrSeed(store, dataFile, ServerConfig.DEFAULT_ADMIN, ServerConfig.DEFAULT_ADMIN_PASSWORD);
 
-        SessionManager sessions = new SessionManager(ServerConfig.MAX_CLIENTS);
         NotificationService notify = new NotificationService();
         Runnable persist = () -> JsonPersistence.save(store, dataFile);
 
-        WikiServiceImpl impl = new WikiServiceImpl(store, sessions, notify, persist);
+        WikiServiceImpl impl = new WikiServiceImpl(store, notify, persist);
 
         Registry registry = LocateRegistry.createRegistry(ServerConfig.REGISTRY_PORT);
         registry.rebind(ServerConfig.SERVICE_NAME, impl);
 
-        LockReaperDaemon reaper = new LockReaperDaemon(store, notify, ServerConfig.REAP_MS);
-        reaper.start();
+        // WĄTEK daemon sprzątający przeterminowane blokady; po zwolnieniu — powiadom klientów.
+        store.startReaper(ServerConfig.REAP_MS, title -> notify.lockChanged(title, null));
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("\nZatrzymywanie serwera — zapisywanie danych...");
             try { persist.run(); } catch (Exception e) { System.err.println("Błąd zapisu: " + e.getMessage()); }
+            System.out.println("Łącznie zapisów stron w tej sesji: " + store.licznikZapisow());   // MONITOR
             notify.shutdown();
-            reaper.stop();
+            store.stopReaper();
         }));
 
         System.out.println("=== Serwer WikiRMI ===");

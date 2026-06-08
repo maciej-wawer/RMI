@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.function.Consumer;
 
 import wikirmi.common.Role;
 import wikirmi.common.dto.*;
@@ -12,35 +15,182 @@ import wikirmi.common.exceptions.*;
 import wikirmi.server.model.*;
 
 /**
- * In-memory state plus ALL concurrency control for the wiki.
+ * ===========================================================================
+ *  RDZEŃ WSPÓŁBIEŻNOŚCI SERWERA  —  cały projekt w jednym miejscu.
  *
- * <p>Two cooperating mechanisms:
- * <ul>
- *   <li><b>Edit-lease</b> ({@link Page#editLock()}): a logical "user X is editing this page"
- *       marker held across think-time. Acquiring/saving check-and-set it under the page write lock,
- *       so of N racing editors exactly one wins.</li>
- *   <li><b>Per-page {@link java.util.concurrent.locks.ReentrantReadWriteLock}</b>: held only for the
- *       microseconds of an in-memory read/mutation. Many concurrent readers; exclusive writers; no
- *       reader ever sees a half-written page. The server is never globally locked for a read.</li>
- * </ul>
+ *  Ta klasa celowo pokazuje WSZYSTKIE CZTERY mechanizmy programowania
+ *  współbieżnego, każdy w osobnej, wyraźnie oznaczonej sekcji:
  *
- * <p><b>Deadlock-free by construction:</b> every method holds at most one page's lock at a time and
- * never nests page locks, so no lock-ordering cycle can form. The maps are {@link ConcurrentHashMap}s
- * with their own internal synchronization.
+ *    1) BLOKADY   (ReentrantReadWriteLock) — edycja stron: wielu czytelników
+ *                 naraz, ale tylko JEDEN piszący; chroni przed stanem wyścigu.
+ *    2) MONITORY  (synchronized)           — wspólny licznik statystyk; klasyczny
+ *                 monitor chroniący zmienną dzieloną przez wiele wątków.
+ *    3) SEMAFORY  (Semaphore)              — limit jednoczesnych klientów.
+ *    4) WĄTKI     (Thread, daemon)         — wątek w tle czyszczący stare blokady.
+ *
+ *  Dlaczego to potrzebne? Serwer RMI obsługuje każde wywołanie klienta w OSOBNYM
+ *  wątku. Gdy dwóch klientów jednocześnie sięga po ten sam zasób (np. edytuje tę
+ *  samą stronę), bez synchronizacji wystąpiłby "stan wyścigu" (race condition) —
+ *  np. jeden zapis nadpisałby drugi. Poniższe mechanizmy temu zapobiegają.
+ *
+ *  Brak zakleszczeń (deadlock): każda metoda trzyma NAJWYŻEJ JEDNĄ blokadę strony
+ *  naraz i nie zagnieżdża blokad — więc nie może powstać cykl oczekiwań.
+ * ===========================================================================
  */
 public class WikiStore {
 
+    // mapy bezpieczne wątkowo (ConcurrentHashMap same w sobie pilnują spójności)
     private final ConcurrentHashMap<String, Page> pages = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, User> users = new ConcurrentHashMap<>();
-    private final long leaseMs;
-    private final Clock clock;
+    private final ConcurrentHashMap<String, Session> sessions = new ConcurrentHashMap<>();
+
+    private final long leaseMs;          // jak długo ważna jest blokada edycji
+    private final Clock clock;           // źródło czasu (w testach podmieniane)
+
+    // --- pola mechanizmów współbieżności ---
+    private final Semaphore wolneMiejsca;        // SEMAFOR: limit klientów
+    private Thread watekSprzatajacy;             // WĄTEK daemon: czyszczenie blokad
+    private final Object monitorStatystyk = new Object();   // MONITOR
+    private int licznikZapisow = 0;              // chroniony przez monitorStatystyk
 
     public WikiStore(long leaseMs, Clock clock) {
-        this.leaseMs = leaseMs;
-        this.clock = clock;
+        this(leaseMs, clock, 50);
     }
 
-    // ---------------------------------------------------------------- validation
+    public WikiStore(long leaseMs, Clock clock, int maksKlientow) {
+        this.leaseMs = leaseMs;
+        this.clock = clock;
+        this.wolneMiejsca = new Semaphore(maksKlientow);   // tyle pozwoleń = tylu klientów naraz
+    }
+
+    // =======================================================================
+    //  MECHANIZM 3: SEMAFORY (Semaphore) — limit jednoczesnych klientów + sesje
+    // =======================================================================
+    // Semafor to "licznik pozwoleń". Każde zalogowanie pobiera jedno pozwolenie
+    // (tryAcquire), wylogowanie je oddaje (release). Gdy pozwoleń brak — odmawiamy
+    // logowania. To prosty sposób na ograniczenie liczby jednoczesnych klientów.
+
+    /** Sesja zalogowanego użytkownika (token + kto + rola). */
+    public static final class Session {
+        public final String token;
+        public final String username;
+        public final Role role;
+        public volatile long lastSeen;          // volatile = bezpieczna widoczność między wątkami
+        Session(String token, String username, Role role, long now) {
+            this.token = token; this.username = username; this.role = role; this.lastSeen = now;
+        }
+    }
+
+    /** Logowanie: pobiera pozwolenie z semafora; gdy brak — serwer pełny. */
+    public String openSession(String username, Role role) throws AuthenticationException {
+        if (!wolneMiejsca.tryAcquire())
+            throw new AuthenticationException("Serwer jest pełny — przekroczono maksymalną liczbę klientów.");
+        String token = UUID.randomUUID().toString();
+        sessions.put(token, new Session(token, username, role, System.currentTimeMillis()));
+        return token;
+    }
+
+    /** Sprawdza token i zwraca sesję; rzuca wyjątek, gdy sesja nieznana/wygasła. */
+    public Session requireSession(String token) throws AuthenticationException {
+        Session s = (token == null) ? null : sessions.get(token);
+        if (s == null)
+            throw new AuthenticationException("Sesja wygasła lub jest nieprawidłowa. Zaloguj się ponownie.");
+        s.lastSeen = System.currentTimeMillis();
+        return s;
+    }
+
+    /** Jak requireSession, ale dodatkowo wymaga roli administratora. */
+    public Session requireAdmin(String token) throws AuthenticationException, AuthorizationException {
+        Session s = requireSession(token);
+        if (s.role != Role.ADMIN)
+            throw new AuthorizationException("Operacja dozwolona tylko dla administratora.");
+        return s;
+    }
+
+    /** Wylogowanie: usuwa sesję i ODDAJE pozwolenie do semafora. */
+    public void closeSession(String token) {
+        if (token != null && sessions.remove(token) != null)
+            wolneMiejsca.release();
+    }
+
+    /** Lista (różnych) nazw zalogowanych użytkowników. */
+    public List<String> onlineUsernames() {
+        java.util.TreeSet<String> rozne = new java.util.TreeSet<>();
+        for (Session s : sessions.values()) rozne.add(s.username);
+        return new ArrayList<>(rozne);
+    }
+
+    // =======================================================================
+    //  MECHANIZM 2: MONITORY (synchronized) — wspólny licznik statystyk
+    // =======================================================================
+    // Monitor to najprostsza forma wzajemnego wykluczania w Javie: blok
+    // "synchronized (obiekt) { ... }" wpuszcza tylko jeden wątek naraz na danym
+    // obiekcie. Tu chronimy zwykłą zmienną int dzieloną przez wiele wątków zapisu —
+    // bez synchronized "licznik++" gubiłby zliczenia (odczyt-dodaj-zapis nie jest
+    // atomowe). Z monitorem inkrementacja jest niepodzielna.
+
+    private void zliczZapis() {
+        synchronized (monitorStatystyk) {
+            licznikZapisow++;
+        }
+    }
+
+    /** Ile zapisów wykonano od startu serwera (czytane spod monitora). */
+    public int licznikZapisow() {
+        synchronized (monitorStatystyk) {
+            return licznikZapisow;
+        }
+    }
+
+    // =======================================================================
+    //  MECHANIZM 4: WĄTKI (Thread, daemon) — sprzątanie starych blokad w tle
+    // =======================================================================
+    // Osobny wątek działający w pętli co kilka sekund zwalnia przeterminowane
+    // blokady edycji (np. gdy klient zamknął edytor albo się zawiesił). Jako
+    // wątek "daemon" nie blokuje zamknięcia programu.
+
+    public void startReaper(long okresMs, Consumer<String> poZwolnieniu) {
+        Thread t = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    Thread.sleep(okresMs);
+                } catch (InterruptedException stop) {
+                    return;                              // przerwano = kończymy wątek
+                }
+                for (String tytul : reapExpiredLocks())  // znajdź i zwolnij wygasłe blokady
+                    if (poZwolnieniu != null) poZwolnieniu.accept(tytul);
+            }
+        }, "watek-sprzatajacy");
+        t.setDaemon(true);                               // wątek tła — nie wstrzymuje zamknięcia JVM
+        t.start();
+        this.watekSprzatajacy = t;
+    }
+
+    public void stopReaper() {
+        Thread t = watekSprzatajacy;
+        if (t != null) t.interrupt();
+    }
+
+    /** Przechodzi po stronach i zwalnia te blokady, które już wygasły. */
+    public List<String> reapExpiredLocks() {
+        long now = clock.now();
+        List<String> zwolnione = new ArrayList<>();
+        for (Page p : pages.values()) {
+            p.lock().writeLock().lock();                 // BLOKADA zapisu na czas zmiany pola
+            try {
+                EditLock l = p.editLock();
+                if (l != null && l.isExpired(now)) {
+                    p.setEditLock(null);
+                    zwolnione.add(p.title());
+                }
+            } finally {
+                p.lock().writeLock().unlock();
+            }
+        }
+        return zwolnione;
+    }
+
+    // ---------------------------------------------------------------- walidacja danych wejściowych
     private static void requireTitle(String t) throws ValidationException {
         if (t == null || t.trim().isEmpty()) throw new ValidationException("Tytuł strony nie może być pusty.");
         if (t.length() > 120) throw new ValidationException("Tytuł jest za długi (maks. 120 znaków).");
@@ -51,15 +201,14 @@ public class WikiStore {
         if (c.length() > 100_000) throw new ValidationException("Treść jest za długa (maks. 100000 znaków).");
     }
 
-    // ---------------------------------------------------------------- users (accounts)
-    /** Used by persistence/seed loading (no validation, no duplicate check). */
-    public void addUser(User u) { users.put(u.username(), u); }
-
+    // ---------------------------------------------------------------- konta użytkowników
+    public void addUser(User u) { users.put(u.username(), u); }       // używane przy wczytywaniu z pliku
     public User getUser(String username) { return users.get(username); }
 
     public void createUser(String username, String salt, String hash, Role role) throws ValidationException {
         if (username == null || username.trim().isEmpty())
             throw new ValidationException("Nazwa użytkownika nie może być pusta.");
+        // putIfAbsent = atomowe "dodaj, jeśli nie istnieje" (jeden wątek wygrywa)
         if (users.putIfAbsent(username, new User(username, salt, hash, role)) != null)
             throw new ValidationException("Użytkownik '" + username + "' już istnieje.");
     }
@@ -69,7 +218,7 @@ public class WikiStore {
             throw new NotFoundException("Nie znaleziono użytkownika: " + username);
     }
 
-    /** Replace a user's salt+hash (role preserved). Used by changePassword. */
+    /** Podmiana hasła (sól + skrót); rola bez zmian. */
     public void updatePassword(String username, String salt, String hash) throws NotFoundException {
         User u = users.get(username);
         if (u == null) throw new NotFoundException("Nie znaleziono użytkownika: " + username);
@@ -83,35 +232,20 @@ public class WikiStore {
         return out;
     }
 
-    /** Snapshot for persistence. */
-    public Collection<User> allUsers() { return users.values(); }
+    public Collection<User> allUsers() { return users.values(); }     // migawka do zapisu
 
-    // ---------------------------------------------------------------- pages: create / delete
+    // ---------------------------------------------------------------- strony: tworzenie / usuwanie
     public PageDTO createPage(String title, String content, String editor) throws ValidationException {
         requireTitle(title);
         String body = (content == null) ? "" : content;
         requireContent(body);
         long now = clock.now();
         Page p = new Page(title, body, 0, editor, now);
-
-        // SEKCJA KRYTYCZNA — atomowe "utwórz, jeśli nie istnieje".
-        // ROZWIĄZANIE UŻYTE: ConcurrentHashMap.putIfAbsent — pojedyncza operacja
-        // ATOMOWA, bez jawnej blokady (lock-free, oparte na CAS w środku mapy).
-        // Z N wątków tworzących ten sam tytuł dokładnie jeden dostaje prev == null.
+        // atomowe "utwórz, jeśli nie istnieje": z N wątków tworzących ten sam tytuł
+        // dokładnie jeden dostaje prev == null i wygrywa — reszta dostaje wyjątek.
         if (pages.putIfAbsent(title, p) != null)
             throw new ValidationException("Strona '" + title + "' już istnieje.");
         return toDTO(p, now);
-
-        // WARIANT ALTERNATYWNY — zwykła HashMap + jawna synchronizacja:
-        //   synchronized (pages) {                    // pages jako HashMap, nie ConcurrentHashMap
-        //       if (pages.containsKey(title))
-        //           throw new ValidationException("Strona '" + title + "' już istnieje.");
-        //       pages.put(title, p);                  // "sprawdź-potem-wstaw" MUSI być w jednym bloku,
-        //   }                                         // inaczej dwa wątki przejdą test i oba wstawią.
-        //   Można też użyć Collections.synchronizedMap(new HashMap<>()), ale to czyni
-        //   atomowymi tylko POJEDYNCZE metody — złożenie containsKey()+put() i tak
-        //   wymaga zewnętrznego synchronized. ConcurrentHashMap.putIfAbsent jest
-        //   prostsze i nie blokuje całej mapy.
     }
 
     public void deletePage(String title) throws NotFoundException {
@@ -119,11 +253,8 @@ public class WikiStore {
             throw new NotFoundException("Nie znaleziono strony: " + title);
     }
 
-    /** Used by persistence load (rebuilds the page map). */
-    public void putPage(Page p) { pages.put(p.title(), p); }
-
-    /** Snapshot for persistence. */
-    public Collection<Page> allPages() { return pages.values(); }
+    public void putPage(Page p) { pages.put(p.title(), p); }          // używane przy wczytywaniu z pliku
+    public Collection<Page> allPages() { return pages.values(); }     // migawka do zapisu
 
     private Page require(String title) throws NotFoundException {
         Page p = pages.get(title);
@@ -131,24 +262,22 @@ public class WikiStore {
         return p;
     }
 
-    // ---------------------------------------------------------------- reads (shared read lock)
+    // =======================================================================
+    //  MECHANIZM 1: BLOKADY (ReentrantReadWriteLock) — odczyt/edycja stron
+    // =======================================================================
+    // Każda strona ma WŁASNĄ blokadę odczytu/zapisu (blokowanie drobnoziarniste —
+    // blokujemy pojedynczą stronę, a nie cały serwer). readLock() wpuszcza wielu
+    // czytelników naraz; writeLock() jest wyłączny (jeden piszący, zero czytelników).
+
+    /** Odczyt strony pod WSPÓŁDZIELONĄ blokadą odczytu (wielu czytelników naraz). */
     public PageDTO getPage(String title) throws NotFoundException {
         Page p = require(title);
-        // ODCZYT pod WSPÓŁDZIELONĄ blokadą odczytu (readLock): wielu czytelników
-        // może czytać RÓWNOCZEŚNIE, ale żaden nie zobaczy strony w połowie zapisu,
-        // bo zapis (savePage) bierze wyłączny writeLock. To kluczowa optymalizacja
-        // dla aplikacji "dużo odczytów, mało zapisów" — serwer nie jest globalnie
-        // blokowany na czas czytania strony przez innych użytkowników.
         p.lock().readLock().lock();
         try {
             return toDTO(p, clock.now());
         } finally {
             p.lock().readLock().unlock();
         }
-        // WARIANT ALTERNATYWNY — synchronized (p): też poprawny (czytelnik nigdy
-        // nie zobaczy częściowego zapisu), ale SERIALIZUJE odczyty — każdy czytelnik
-        // czeka na poprzedniego. Przy wielu jednoczesnych odczytach ReadWriteLock
-        // daje znacznie lepszą przepustowość.
     }
 
     public List<PageSummaryDTO> listPages() {
@@ -173,11 +302,8 @@ public class WikiStore {
         for (Page p : pages.values()) {
             p.lock().readLock().lock();
             try {
-                if (q.isEmpty()
-                        || p.title().toLowerCase().contains(q)
-                        || p.content().toLowerCase().contains(q)) {
+                if (q.isEmpty() || p.title().toLowerCase().contains(q) || p.content().toLowerCase().contains(q))
                     out.add(toSummary(p, now));
-                }
             } finally {
                 p.lock().readLock().unlock();
             }
@@ -186,24 +312,16 @@ public class WikiStore {
         return out;
     }
 
-    // ---------------------------------------------------------------- edit-lease (write lock)
+    /**
+     * SEKCJA KRYTYCZNA — "sprawdź i ustaw" blokadę edycji (ochrona przed wyścigiem).
+     * Gdy N klientów jednocześnie wywoła tę metodę dla tej samej strony, writeLock
+     * wpuści tylko jeden wątek naraz, więc DOKŁADNIE JEDEN założy dzierżawę edycji,
+     * a pozostali zobaczą ją zajętą i dostaną PageLockedException.
+     */
     public LockInfoDTO acquireEditLock(String title, String token, String userName)
             throws NotFoundException, PageLockedException {
         Page p = require(title);
         long now = clock.now();
-
-        // ====================================================================
-        // SEKCJA KRYTYCZNA — "sprawdź i ustaw" (check-and-set) blokadę edycji.
-        // To serce ochrony przed stanem wyścigu (race condition): gdy N klientów
-        // jednocześnie wywoła tę metodę dla TEJ SAMEJ strony, blokada zapisu
-        // dopuści do bloku tylko jeden wątek naraz, więc dokładnie jeden założy
-        // dzierżawę, a pozostali zobaczą ją już ustawioną i dostaną wyjątek.
-        //
-        // ROZWIĄZANIE UŻYTE: ReentrantReadWriteLock.writeLock() z obiektu Page.
-        //   + drobnoziarniste: blokada dotyczy JEDNEJ strony, nie całego serwera;
-        //   + odczyty (getPage) biorą readLock i nie blokują się wzajemnie;
-        //   + brak zakleszczeń: operacja trzyma najwyżej jedną blokadę strony.
-        // ====================================================================
         p.lock().writeLock().lock();
         try {
             EditLock cur = p.editLock();
@@ -215,40 +333,12 @@ public class WikiStore {
         } finally {
             p.lock().writeLock().unlock();
         }
-
-        // --------------------------------------------------------------------
-        // TE SAME SEKCJE KRYTYCZNE — WARIANTY ALTERNATYWNE (zakomentowane).
-        // Wszystkie poprawnie chronią sekcję krytyczną; różnią się właściwościami.
-        //
-        // WARIANT 1 — synchronized (monitor obiektu Page):
-        //   synchronized (p) {
-        //       EditLock cur = p.editLock();
-        //       if (cur != null && !cur.isExpired(now) && !cur.heldBy(token))
-        //           throw new PageLockedException(cur.holderName(),
-        //                   Math.max(0, cur.expiresAt() - now) / 1000);
-        //       EditLock l = new EditLock(token, userName, now, now + leaseMs);
-        //       p.setEditLock(l);
-        //       return toLockInfo(l, now);
-        //   }
-        //   Wada: monitor nie rozróżnia odczytu od zapisu — czytelnicy też by się
-        //   serializowali, tracąc współbieżność odczytów (gorsze niż ReadWriteLock).
-        //
-        // WARIANT 2 — jawny ReentrantLock per-strona (wymaga pola w klasie Page,
-        //             np. `private final ReentrantLock editMutex = new ReentrantLock();`):
-        //   p.editMutex().lock();
-        //   try { /* ta sama logika check-and-set */ }
-        //   finally { p.editMutex().unlock(); }
-        //   Zaleta: tryLock(timeout) i lockInterruptibly(); Wada: brak rozdziału R/W.
-        //
-        // WARIANT 3 — Semaphore(1) jako blokada binarna (pole w Page,
-        //             np. `private final Semaphore editPermit = new Semaphore(1);`):
-        //   p.editPermit().acquire();
-        //   try { /* ta sama logika */ } finally { p.editPermit().release(); }
-        //   Uwaga: semafor nie jest reentrantny i nie ma "właściciela" wątku —
-        //   jako zwykła wzajemna wykluczność jest tu mniej naturalny niż lock.
-        // --------------------------------------------------------------------
+        // Wariant alternatywny tej samej sekcji krytycznej: zamiast writeLock można
+        // użyć "synchronized (p) { ... }" (monitor) albo ReentrantLock — działają tak
+        // samo, ale nie rozdzielają odczytu od zapisu (czytelnicy też by się blokowali).
     }
 
+    /** Odnowienie dzierżawy (klient co kilka sekund przedłuża swoją blokadę). */
     public LockInfoDTO renewEditLock(String title, String token)
             throws NotFoundException, PageLockedException {
         Page p = require(title);
@@ -266,6 +356,7 @@ public class WikiStore {
         }
     }
 
+    /** Zwolnienie blokady (anulowanie edycji). */
     public void releaseEditLock(String title, String token) throws NotFoundException {
         Page p = require(title);
         p.lock().writeLock().lock();
@@ -277,19 +368,18 @@ public class WikiStore {
         }
     }
 
-    // ---------------------------------------------------------------- save (write lock)
+    /**
+     * Zapis strony pod WYŁĄCZNYM writeLock. PODWÓJNA ochrona:
+     *  1) tylko posiadacz aktywnej dzierżawy może zapisać (pesymistycznie),
+     *  2) zgodność numeru wersji (optymistycznie) — gdyby dzierżawa wygasła i ktoś
+     *     zmienił stronę, niezgodna baseVersion zatrzyma zapis.
+     * Inkrementacja wersji + dopis do historii są niepodzielne → brak "lost update".
+     */
     public PageDTO savePage(String title, String token, String userName, String newContent, long baseVersion)
             throws NotFoundException, AuthorizationException, VersionConflictException, ValidationException {
         requireContent(newContent);
         Page p = require(title);
         long now = clock.now();
-        // SEKCJA KRYTYCZNA zapisu — pod wyłącznym writeLock. PODWÓJNA ochrona:
-        //   1) blokada-dzierżawa: tylko posiadacz aktywnej dzierżawy może zapisać
-        //      (pesymistycznie — inni nie weszli nawet w edycję);
-        //   2) kontrola wersji (optymistycznie) — gdyby dzierżawa wygasła i ktoś
-        //      zmienił stronę w międzyczasie, niezgodna baseVersion zatrzyma zapis.
-        // Inkrementacja wersji i dopisanie rewizji są tu NIEPODZIELNE (atomowe),
-        // więc nie zgubimy żadnej aktualizacji (brak "lost update").
         p.lock().writeLock().lock();
         try {
             EditLock cur = p.editLock();
@@ -303,14 +393,15 @@ public class WikiStore {
             p.setLastEditor(userName);
             p.setLastModified(now);
             p.history().add(new RevisionDTO((int) newVersion, userName, now, newContent));
-            p.setEditLock(null);                            // editing finished -> release lease
+            p.setEditLock(null);                            // koniec edycji -> zwolnij dzierżawę
+            zliczZapis();                                   // MONITOR: policz zapis (synchronized)
             return toDTO(p, now);
         } finally {
             p.lock().writeLock().unlock();
         }
     }
 
-    // ---------------------------------------------------------------- history (read lock)
+    // ---------------------------------------------------------------- historia (blokada odczytu)
     public List<RevisionDTO> getHistory(String title) throws NotFoundException {
         Page p = require(title);
         p.lock().readLock().lock();
@@ -334,7 +425,7 @@ public class WikiStore {
         }
     }
 
-    /** Restore an old revision's content as a NEW revision (preserves history). */
+    /** Przywraca starą rewizję jako NOWĄ wersję (zachowuje pełną historię). */
     public PageDTO restoreRevision(String title, String token, String userName, int revisionIndex)
             throws NotFoundException, ValidationException, PageLockedException {
         Page p = require(title);
@@ -361,8 +452,7 @@ public class WikiStore {
         }
     }
 
-    // ---------------------------------------------------------------- reaper hook (write lock)
-    /** Force-clear any edit-lock on a page regardless of holder (admin override). */
+    /** Wymuszone zdjęcie blokady (administrator), niezależnie od posiadacza. */
     public void forceUnlock(String title) throws NotFoundException {
         Page p = require(title);
         p.lock().writeLock().lock();
@@ -373,26 +463,7 @@ public class WikiStore {
         }
     }
 
-    /** Reclaim every expired edit-lease; returns the titles freed. Called by the reaper daemon. */
-    public List<String> reapExpiredLocks() {
-        long now = clock.now();
-        List<String> freed = new ArrayList<>();
-        for (Page p : pages.values()) {
-            p.lock().writeLock().lock();
-            try {
-                EditLock l = p.editLock();
-                if (l != null && l.isExpired(now)) {
-                    p.setEditLock(null);
-                    freed.add(p.title());
-                }
-            } finally {
-                p.lock().writeLock().unlock();
-            }
-        }
-        return freed;
-    }
-
-    // ---------------------------------------------------------------- mappers (caller holds the lock)
+    // ---------------------------------------------------------------- mapowanie na DTO (pod blokadą wołającego)
     private PageDTO toDTO(Page p, long now) {
         return new PageDTO(p.title(), p.content(), p.version(), p.lastEditor(), p.lastModified(),
                 toLockInfo(p.editLock(), now));

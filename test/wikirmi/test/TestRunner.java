@@ -18,7 +18,7 @@ public class TestRunner {
         "wikirmi.test.LostUpdateTest",
         "wikirmi.test.ReadersWriterTest",
         "wikirmi.test.PasswordHasherTest",
-        "wikirmi.test.SessionManagerTest",
+        "wikirmi.test.SemaforTest",
         "wikirmi.test.JsonTest",
         "wikirmi.test.RestartPersistenceTest",
         "wikirmi.test.NotificationTest",
