@@ -5,32 +5,32 @@ import java.awt.Color;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
+import com.formdev.flatlaf.FlatLightLaf;
+
 import wikirmi.client.gui.LoginFrame;
 
-/** Client entry point: applies the Nimbus look & feel, then shows the login window. */
+/** Punkt wejścia klienta: ustawia nowoczesny wygląd FlatLaf i pokazuje okno logowania. */
 public class WikiClient {
     public static void main(String[] args) {
         applyLookAndFeel();
         SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
     }
 
-    private static void applyLookAndFeel() {
+    /** Nowoczesny, płaski wygląd (FlatLaf) z zaokrągleniami i akcentem. */
+    public static void applyLookAndFeel() {
         try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    // subtle cohesive blue theme + readable defaults
-                    UIManager.put("nimbusBase", new Color(0x3C5A99));
-                    UIManager.put("nimbusFocus", new Color(0x2D6CDF));
-                    UIManager.put("control", new Color(0xF3F5FA));
-                    UIManager.put("background", new Color(0xF3F5FA));
-                    UIManager.put("text", new Color(0x1B1B1B));
-                    return;
-                }
-            }
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            FlatLightLaf.setup();
+            UIManager.put("Button.arc", 14);
+            UIManager.put("Component.arc", 12);
+            UIManager.put("TextComponent.arc", 10);
+            UIManager.put("ScrollBar.thumbArc", 999);
+            UIManager.put("ScrollBar.width", 12);
+            UIManager.put("Component.focusWidth", 1);
+            UIManager.put("Component.accentColor", new Color(0x2D6CDF));
+            UIManager.put("TabbedPane.showTabSeparators", true);
+            UIManager.put("Table.showHorizontalLines", true);
         } catch (Exception ignored) {
-            // fall back to the default look and feel
+            try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) { /* ostateczny fallback */ }
         }
     }
 }

@@ -30,15 +30,7 @@ import wikirmi.server.store.WikiStore;
  */
 public class RenderShot {
     public static void main(String[] args) throws Exception {
-        for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-            if ("Nimbus".equals(info.getName())) {
-                UIManager.setLookAndFeel(info.getClassName());
-                UIManager.put("nimbusBase", new Color(0x3C5A99));
-                UIManager.put("nimbusFocus", new Color(0x2D6CDF));
-                UIManager.put("control", new Color(0xF3F5FA));
-                break;
-            }
-        }
+        wikirmi.client.WikiClient.applyLookAndFeel();   // ten sam wygląd (FlatLaf) co w aplikacji
 
         int port = 1103;
         WikiStore store = new WikiStore(30000, Clock.SYSTEM);
@@ -85,7 +77,21 @@ public class RenderShot {
         ImageIO.write(robot.createScreenCapture(db[0]), "png", new File("ui-newuser.png"));
         System.out.println("WROTE ui-newuser.png");
 
-        SwingUtilities.invokeAndWait(() -> { dlg[0].dispose(); mf[0].dispose(); });
+        // capture the admin panel (verify buttons are not covered)
+        final wikirmi.client.gui.AdminDialog[] adm = new wikirmi.client.gui.AdminDialog[1];
+        SwingUtilities.invokeAndWait(() -> {
+            adm[0] = new wikirmi.client.gui.AdminDialog(mf[0], c);
+            adm[0].setModal(false);
+            adm[0].setVisible(true);
+            adm[0].toFront();
+        });
+        Thread.sleep(500);
+        final Rectangle[] ab = new Rectangle[1];
+        SwingUtilities.invokeAndWait(() -> ab[0] = adm[0].getBounds());
+        ImageIO.write(robot.createScreenCapture(ab[0]), "png", new File("ui-admin.png"));
+        System.out.println("WROTE ui-admin.png");
+
+        SwingUtilities.invokeAndWait(() -> { adm[0].dispose(); dlg[0].dispose(); mf[0].dispose(); });
         notify.shutdown();
         System.exit(0);
     }

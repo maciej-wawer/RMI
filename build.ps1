@@ -10,7 +10,9 @@ $srcDirs = @((Join-Path $PSScriptRoot 'src'), (Join-Path $PSScriptRoot 'test')) 
 $files = @(Get-ChildItem -Recurse -Filter *.java -Path $srcDirs | ForEach-Object { $_.FullName })
 if ($files.Count -eq 0) { throw "No .java files found under src/ or test/." }
 
-$javacArgs = @('-encoding', 'UTF-8', '-d', $out) + $files
+$javacArgs = @('-encoding', 'UTF-8', '-d', $out)
+if ($LibJars.Count -gt 0) { $javacArgs += @('-cp', ($LibJars -join ';')) }
+$javacArgs += $files
 & $Javac @javacArgs
 if ($LASTEXITCODE -ne 0) { throw "Compilation FAILED (exit $LASTEXITCODE)" }
 Write-Host ("Build OK -> out/  ({0} files)" -f $files.Count)
