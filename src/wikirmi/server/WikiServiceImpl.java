@@ -82,6 +82,9 @@ public class WikiServiceImpl extends UnicastRemoteObject implements WikiService 
         WikiStore.Session s = store.requireAdmin(token);
         if (s.username.equals(username)) throw new WikiException("Nie można usunąć własnego konta.");
         store.deleteUser(username);
+        // wyloguj usuniętego użytkownika i zwolnij jego blokady edycji; powiadom innych
+        for (String title : store.kickUser(username)) notify.lockChanged(title, null);
+        notify.presenceChanged();
         persist.run();
     }
 

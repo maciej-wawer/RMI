@@ -18,3 +18,7 @@ function Find-JdkHome {
 $JdkHome = Find-JdkHome
 $Javac   = Join-Path $JdkHome 'bin\javac.exe'
 $Java    = Join-Path $JdkHome 'bin\java.exe'
+
+# Biblioteki zewnętrzne z lib/ (np. FlatLaf) + classpath uruchomieniowy (out + lib).
+$LibJars   = @(Get-ChildItem (Join-Path $PSScriptRoot 'lib') -Filter *.jar -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+$ClassPath = (@((Join-Path $PSScriptRoot 'out')) + $LibJars) -join ';'

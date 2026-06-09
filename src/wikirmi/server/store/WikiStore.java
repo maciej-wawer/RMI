@@ -218,6 +218,32 @@ public class WikiStore {
             throw new WikiException("Nie znaleziono użytkownika: " + username);
     }
 
+    /**
+     * "Wyrzuca" użytkownika: zamyka WSZYSTKIE jego sesje (oddając pozwolenia semafora)
+     * i zwalnia WSZYSTKIE blokady edycji, które trzymał. Zwraca tytuły zwolnionych stron,
+     * żeby serwer mógł powiadomić pozostałych klientów. Używane przy usuwaniu konta.
+     */
+    public List<String> kickUser(String username) {
+        List<String> tokens = new ArrayList<>();
+        for (Session s : sessions.values())
+            if (s.username.equals(username)) tokens.add(s.token);
+
+        List<String> freed = new ArrayList<>();
+        for (String token : tokens) {
+            for (Page p : pages.values()) {
+                p.lock().writeLock().lock();                 // BLOKADA zapisu na czas zmiany pola
+                try {
+                    EditLock l = p.editLock();
+                    if (l != null && l.heldBy(token)) { p.setEditLock(null); freed.add(p.title()); }
+                } finally {
+                    p.lock().writeLock().unlock();
+                }
+            }
+            closeSession(token);                             // usuwa sesję + oddaje pozwolenie SEMAFORA
+        }
+        return freed;
+    }
+
     /** Podmiana hasła (sól + skrót); rola bez zmian. */
     public void updatePassword(String username, String salt, String hash) throws WikiException {
         User u = users.get(username);
