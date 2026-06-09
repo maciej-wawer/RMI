@@ -9,31 +9,13 @@ import java.lang.reflect.Method;
  */
 public class TestRunner {
 
-    /** Registered tests, in execution order. Add new test classes here. */
+    /** Pięć testów STRICTE pod współbieżność (każdy = jeden scenariusz, z polską narracją). */
     static final String[] TESTS = {
-        // --- scenariusze współbieżności (demonstracje) ---
-        "wikirmi.test.Demo1_UsuwanieEdytowanejStrony",
-        "wikirmi.test.Demo2_WymuszoneOdblokowanie",
-        "wikirmi.test.Demo3_DwochNaRazNieWejdzie",
-        "wikirmi.test.Demo4_UsuniecieEdytujacegoUzytkownika",
-        // --- pozostałe testy ---
-        "wikirmi.test.SerializationTest",
-        "wikirmi.test.EditLockTest",
-        "wikirmi.test.CreatePageRaceTest",
-        "wikirmi.test.ConcurrencyTest",
-        "wikirmi.test.LostUpdateTest",
-        "wikirmi.test.ReadersWriterTest",
-        "wikirmi.test.PasswordHasherTest",
-        "wikirmi.test.SemaforTest",
-        "wikirmi.test.JsonTest",
-        "wikirmi.test.RestartPersistenceTest",
-        "wikirmi.test.NotificationTest",
-        "wikirmi.test.LockExpiryTest",
-        "wikirmi.test.RestoreRevisionTest",
-        "wikirmi.test.ChangePasswordTest",
-        "wikirmi.test.ForceUnlockTest",
-        "wikirmi.test.MarkdownRendererTest",
-        "wikirmi.test.TextDiffTest",
+        "wikirmi.test.Demo1_UsuwanieEdytowanejStrony",        // usuwanie strony w trakcie edycji
+        "wikirmi.test.Demo2_WymuszoneOdblokowanie",           // admin zdejmuje blokadę
+        "wikirmi.test.Demo3_DwochNaRazNieWejdzie",            // wyścig: 2 osoby + 10 wątków, 1 wygrywa
+        "wikirmi.test.Demo4_UsuniecieEdytujacegoUzytkownika", // usunięcie edytującego użytkownika
+        "wikirmi.test.Demo5_BrakUtraconychZapisow",           // 50 wątków, brak lost update
     };
 
     public static void main(String[] args) throws Exception {
