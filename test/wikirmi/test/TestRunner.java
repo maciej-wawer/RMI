@@ -11,6 +11,12 @@ public class TestRunner {
 
     /** Registered tests, in execution order. Add new test classes here. */
     static final String[] TESTS = {
+        // --- scenariusze współbieżności (demonstracje) ---
+        "wikirmi.test.Demo1_UsuwanieEdytowanejStrony",
+        "wikirmi.test.Demo2_WymuszoneOdblokowanie",
+        "wikirmi.test.Demo3_DwochNaRazNieWejdzie",
+        "wikirmi.test.Demo4_UsuniecieEdytujacegoUzytkownika",
+        // --- pozostałe testy ---
         "wikirmi.test.SerializationTest",
         "wikirmi.test.EditLockTest",
         "wikirmi.test.CreatePageRaceTest",
