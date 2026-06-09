@@ -38,6 +38,7 @@ public class MainFrame extends JFrame implements WikiEvents {
     private List<Dto.PageSummary> currentPages = java.util.Collections.emptyList();
     private String viewedTitle;
     private ClientCallbackImpl callback;
+    private boolean loggingOut = false;
 
     public MainFrame(WikiClientController controller, Dto.User user) {
         super("WikiRMI — " + user.getUsername() + " (" + user.getRole() + ")");
@@ -48,6 +49,8 @@ public class MainFrame extends JFrame implements WikiEvents {
         buildUi();
         installShortcuts();
         setupCallback();
+        // gdy serwer zgłosi nieważną sesję (np. konto usunięte) -> automatyczne wylogowanie
+        UiUtils.setSessionInvalidHandler(this::forcedLogout);
         reload();
         refreshOnline();
         updateStatusConn(0);
@@ -350,7 +353,20 @@ public class MainFrame extends JFrame implements WikiEvents {
         dispose();
     }
 
+    /** Wymuszone wylogowanie, gdy sesja stała się nieważna (np. konto usunięte przez admina). */
+    private void forcedLogout() {
+        if (loggingOut) return;
+        loggingOut = true;
+        for (java.awt.Window w : getOwnedWindows()) w.dispose();   // zamknij otwarte okna (edytor, dialogi)
+        cleanup();
+        UiUtils.info(this, "Sesja została zakończona (np. konto zostało usunięte lub serwer zrestartowany).\n"
+                + "Zaloguj się ponownie.");
+        new LoginFrame().setVisible(true);
+        dispose();
+    }
+
     private void cleanup() {
+        UiUtils.setSessionInvalidHandler(null);                    // przestań reagować na błędy sesji
         if (callback != null) {
             try { controller.unsubscribe(callback); } catch (Exception ignored) { }
             try { UnicastRemoteObject.unexportObject(callback, true); } catch (Exception ignored) { }

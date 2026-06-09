@@ -15,9 +15,16 @@ import java.util.function.Consumer;
 import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
 
+import wikirmi.common.exceptions.WikiException;
+
 /** Swing helpers: run remote calls off the EDT and turn exceptions into friendly dialogs. */
 public final class UiUtils {
     private UiUtils() {}
+
+    /** Wywoływane, gdy serwer zgłosi nieważną sesję — klient powinien się wtedy wylogować.
+     *  Ustawiane przez MainFrame; gdy null, pokazujemy zwykły błąd. */
+    private static Runnable sessionInvalidHandler;
+    public static void setSessionInvalidHandler(Runnable handler) { sessionInvalidHandler = handler; }
 
     // shared palette
     public static final Color ACCENT     = new Color(0x2D6CDF);   // primary blue
@@ -59,6 +66,11 @@ public final class UiUtils {
     public static void error(Component owner, Throwable t) {
         Throwable r = t;
         while (r instanceof ExecutionException && r.getCause() != null) r = r.getCause();
+        // Nieważna sesja (np. konto usunięte, restart serwera) -> wyloguj zamiast pokazywać błąd.
+        if (WikiException.isSessionInvalid(r) && sessionInvalidHandler != null) {
+            sessionInvalidHandler.run();
+            return;
+        }
         String msg = (r.getMessage() != null) ? r.getMessage() : r.toString();
         JOptionPane.showMessageDialog(owner, msg, "Błąd", JOptionPane.ERROR_MESSAGE);
     }

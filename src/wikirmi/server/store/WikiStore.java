@@ -94,7 +94,7 @@ public class WikiStore {
     public Session requireSession(String token) throws WikiException {
         Session s = (token == null) ? null : sessions.get(token);
         if (s == null)
-            throw new WikiException("Sesja wygasła lub jest nieprawidłowa. Zaloguj się ponownie.");
+            throw new WikiException(WikiException.SESSION_INVALID);
         s.lastSeen = System.currentTimeMillis();
         return s;
     }
