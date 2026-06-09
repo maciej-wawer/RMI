@@ -29,6 +29,8 @@ public class EditDialog extends JDialog {
     private final Timer countdown;
     private int secondsLeft;
     private boolean closedBySave = false;
+    private boolean lockLost = false;        // gdy blokada przepadła — komunikat pokazujemy TYLKO raz
+    private boolean renewInFlight = false;   // jeden renew naraz (bez piętrzenia wywołań RMI)
 
     public EditDialog(MainFrame owner, WikiClientController controller, Dto.Page page) {
         super(owner, "Edycja: " + page.getTitle(), true);
@@ -89,14 +91,19 @@ public class EditDialog extends JDialog {
     }
 
     private void renew() {
+        if (lockLost || renewInFlight) return;   // nie odnawiaj, gdy blokada już przepadła lub renew trwa
+        renewInFlight = true;
         new SwingWorker<Void, Void>() {
             @Override protected Void doInBackground() throws Exception { controller.renewEditLock(title); return null; }
             @Override protected void done() {
+                renewInFlight = false;
+                if (lockLost) return;                        // inny worker już obsłużył utratę blokady
                 try {
                     get();
                     secondsLeft = LEASE_SECONDS;             // lease extended
                     updateCountdownLabel();
                 } catch (Exception ex) {
+                    lockLost = true;                         // od teraz komunikat się już nie powtórzy
                     stopTimers();
                     UiUtils.error(EditDialog.this, "Utracono blokadę edycji tej strony. Okno zostanie zamknięte.");
                     dispose();

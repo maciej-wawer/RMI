@@ -12,8 +12,7 @@ import wikirmi.server.store.WikiStore;
 
 /**
  * Punkt startowy serwera: buduje magazyn (wczytuje/seeduje dane), tworzy rejestr RMI
- * w tym samym procesie, rejestruje usługę, uruchamia wątek sprzątający blokady i ustawia
- * hak zamknięcia zapisujący dane.
+ * w tym samym procesie, rejestruje usługę i ustawia hak zamknięcia zapisujący dane.
  */
 public class WikiServer {
 
@@ -35,15 +34,11 @@ public class WikiServer {
         LocateRegistry.createRegistry(ServerConfig.REGISTRY_PORT);
         java.rmi.Naming.rebind("//localhost:" + ServerConfig.REGISTRY_PORT + "/" + ServerConfig.SERVICE_NAME, impl);
 
-        // WĄTEK daemon sprzątający przeterminowane blokady; po zwolnieniu — powiadom klientów.
-        store.startReaper(ServerConfig.REAP_MS, title -> notify.lockChanged(title, null));
-
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("\nZatrzymywanie serwera — zapisywanie danych...");
             try { persist.run(); } catch (Exception e) { System.err.println("Błąd zapisu: " + e.getMessage()); }
             System.out.println("Łącznie zapisów stron w tej sesji: " + store.licznikZapisow());   // MONITOR
             notify.shutdown();
-            store.stopReaper();
         }));
 
         System.out.println("=== Serwer WikiRMI ===");

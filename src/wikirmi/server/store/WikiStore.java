@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
-import java.util.function.Consumer;
 
 import wikirmi.common.Role;
 import wikirmi.common.dto.*;
@@ -18,15 +17,20 @@ import wikirmi.server.model.*;
  * ===========================================================================
  *  RDZEŃ WSPÓŁBIEŻNOŚCI SERWERA  —  cały projekt w jednym miejscu.
  *
- *  Ta klasa celowo pokazuje WSZYSTKIE CZTERY mechanizmy programowania
- *  współbieżnego, każdy w osobnej, wyraźnie oznaczonej sekcji:
+ *  Ta klasa pokazuje TRZY mechanizmy programowania współbieżnego, każdy w
+ *  osobnej, wyraźnie oznaczonej sekcji (czwarty — WĄTKI/pula wątków — działa
+ *  w NotificationService, gdzie ExecutorService rozsyła powiadomienia do klientów):
  *
  *    1) BLOKADY   (ReentrantReadWriteLock) — edycja stron: wielu czytelników
  *                 naraz, ale tylko JEDEN piszący; chroni przed stanem wyścigu.
  *    2) MONITORY  (synchronized)           — wspólny licznik statystyk; klasyczny
  *                 monitor chroniący zmienną dzieloną przez wiele wątków.
  *    3) SEMAFORY  (Semaphore)              — limit jednoczesnych klientów.
- *    4) WĄTKI     (Thread, daemon)         — wątek w tle czyszczący stare blokady.
+ *
+ *  Wygasanie blokad: przeterminowana dzierżawa edycji jest wykrywana LENIWIE
+ *  przy następnym acquireEditLock / renewEditLock / savePage (sprawdzenie
+ *  isExpired), więc zawieszony klient NIGDY nie zablokuje strony na stałe —
+ *  nie jest do tego potrzebny żaden osobny wątek w tle.
  *
  *  Dlaczego to potrzebne? Serwer RMI obsługuje każde wywołanie klienta w OSOBNYM
  *  wątku. Gdy dwóch klientów jednocześnie sięga po ten sam zasób (np. edytuje tę
@@ -49,7 +53,6 @@ public class WikiStore {
 
     // --- pola mechanizmów współbieżności ---
     private final Semaphore wolneMiejsca;        // SEMAFOR: limit klientów
-    private Thread watekSprzatajacy;             // WĄTEK daemon: czyszczenie blokad
     private final Object monitorStatystyk = new Object();   // MONITOR
     private int licznikZapisow = 0;              // chroniony przez monitorStatystyk
 
@@ -140,54 +143,6 @@ public class WikiStore {
         synchronized (monitorStatystyk) {
             return licznikZapisow;
         }
-    }
-
-    // =======================================================================
-    //  MECHANIZM 4: WĄTKI (Thread, daemon) — sprzątanie starych blokad w tle
-    // =======================================================================
-    // Osobny wątek działający w pętli co kilka sekund zwalnia przeterminowane
-    // blokady edycji (np. gdy klient zamknął edytor albo się zawiesił). Jako
-    // wątek "daemon" nie blokuje zamknięcia programu.
-
-    public void startReaper(long okresMs, Consumer<String> poZwolnieniu) {
-        Thread t = new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                try {
-                    Thread.sleep(okresMs);
-                } catch (InterruptedException stop) {
-                    return;                              // przerwano = kończymy wątek
-                }
-                for (String tytul : reapExpiredLocks())  // znajdź i zwolnij wygasłe blokady
-                    if (poZwolnieniu != null) poZwolnieniu.accept(tytul);
-            }
-        }, "watek-sprzatajacy");
-        t.setDaemon(true);                               // wątek tła — nie wstrzymuje zamknięcia JVM
-        t.start();
-        this.watekSprzatajacy = t;
-    }
-
-    public void stopReaper() {
-        Thread t = watekSprzatajacy;
-        if (t != null) t.interrupt();
-    }
-
-    /** Przechodzi po stronach i zwalnia te blokady, które już wygasły. */
-    public List<String> reapExpiredLocks() {
-        long now = clock.now();
-        List<String> zwolnione = new ArrayList<>();
-        for (Page p : pages.values()) {
-            p.lock().writeLock().lock();                 // BLOKADA zapisu na czas zmiany pola
-            try {
-                EditLock l = p.editLock();
-                if (l != null && l.isExpired(now)) {
-                    p.setEditLock(null);
-                    zwolnione.add(p.title());
-                }
-            } finally {
-                p.lock().writeLock().unlock();
-            }
-        }
-        return zwolnione;
     }
 
     // ---------------------------------------------------------------- walidacja danych wejściowych
